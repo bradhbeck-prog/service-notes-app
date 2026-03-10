@@ -9,6 +9,7 @@ export default function Page() {
   const [worker, setWorker] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
+  const [noteText, setNoteText] = useState("");
 
   async function handleLogin() {
     setMessage("");
@@ -56,8 +57,10 @@ export default function Page() {
         <h1>Supports Broker Service Notes</h1>
         <p>Worker: {worker.name}</p>
         <p>Participant: {selectedParticipant.name}</p>
-        <textarea
+ <textarea
   placeholder="Write service note..."
+  value={noteText}
+  onChange={(e) => setNoteText(e.target.value)}
   style={{
     width: "100%",
     height: 200,
@@ -66,6 +69,7 @@ export default function Page() {
     fontSize: 16,
     boxSizing: "border-box"
   }}
+/>
 />
       </main>
     );
