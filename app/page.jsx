@@ -1,14 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
 
 export default function Page() {
   const [pin, setPin] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function handleLogin() {
+    const { data } = await supabase
+      .from("workers")
+      .select("*")
+      .eq("pin", pin)
+      .eq("active", true)
+      .single();
+
+    if (data) {
+      setMessage("Login successful");
+    } else {
+      setMessage("Invalid PIN");
+    }
+  }
 
   return (
     <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500 }}>
       <h1>Supports Broker Service Notes</h1>
-      <p>Worker sign in</p>
 
       <input
         type="password"
@@ -26,6 +42,7 @@ export default function Page() {
       />
 
       <button
+        onClick={handleLogin}
         style={{
           padding: "10px 18px",
           fontSize: 16,
@@ -34,6 +51,8 @@ export default function Page() {
       >
         Sign in
       </button>
+
+      <p>{message}</p>
     </main>
   );
 }
