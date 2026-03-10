@@ -6,20 +6,67 @@ import { supabase } from "../lib/supabase";
 export default function Page() {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
+  const [worker, setWorker] = useState(null);
+  const [participants, setParticipants] = useState([]);
 
   async function handleLogin() {
-    const { data } = await supabase
+    setMessage("");
+
+    const { data: workerData } = await supabase
       .from("workers")
       .select("*")
       .eq("pin", pin)
       .eq("active", true)
       .single();
 
-    if (data) {
-      setMessage("Login successful");
-    } else {
+    if (!workerData) {
       setMessage("Invalid PIN");
+      return;
     }
+
+    setWorker(workerData);
+
+    const { data: assignmentRows } = await supabase
+      .from("worker_participants")
+      .select("participant_id")
+      .eq("worker_id", workerData.id);
+
+    const participantIds = (assignmentRows || []).map((row) => row.participant_id);
+
+    if (participantIds.length === 0) {
+      setParticipants([]);
+      setMessage("No participants assigned");
+      return;
+    }
+
+    const { data: participantRows } = await supabase
+      .from("participants")
+      .select("*")
+      .in("id", participantIds)
+      .eq("active", true);
+
+    setParticipants(participantRows || []);
+    setMessage("");
+  }
+
+  if (worker) {
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700 }}>
+        <h1>Supports Broker Service Notes</h1>
+        <p>Welcome, {worker.name}</p>
+        <h2>Assigned Participants</h2>
+
+        {participants.length === 0 ? (
+          <p>No participants assigned.</p>
+        ) : (
+          <ul>
+            {participants.map((participant) => (
+              <li key={participant.id}>{participant.name}</li>
+            ))}
+          </ul>
+        )}
+      </main>
+    );
   }
 
   return (
