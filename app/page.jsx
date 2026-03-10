@@ -8,6 +8,7 @@ export default function Page() {
   const [message, setMessage] = useState("");
   const [worker, setWorker] = useState(null);
   const [participants, setParticipants] = useState([]);
+  const [selectedParticipant, setSelectedParticipant] = useState(null);
 
   async function handleLogin() {
     setMessage("");
@@ -49,6 +50,16 @@ export default function Page() {
     setMessage("");
   }
 
+  if (selectedParticipant) {
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700 }}>
+        <h1>Supports Broker Service Notes</h1>
+        <p>Worker: {worker.name}</p>
+        <p>Participant: {selectedParticipant.name}</p>
+      </main>
+    );
+  }
+
   if (worker) {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700 }}>
@@ -59,11 +70,22 @@ export default function Page() {
         {participants.length === 0 ? (
           <p>No participants assigned.</p>
         ) : (
-          <ul>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {participants.map((participant) => (
-              <li key={participant.id}>{participant.name}</li>
+              <button
+                key={participant.id}
+                onClick={() => setSelectedParticipant(participant)}
+                style={{
+                  padding: 12,
+                  fontSize: 16,
+                  textAlign: "left",
+                  cursor: "pointer"
+                }}
+              >
+                {participant.name}
+              </button>
             ))}
-          </ul>
+          </div>
         )}
       </main>
     );
