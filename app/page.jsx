@@ -10,6 +10,7 @@ export default function Page() {
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function handleLogin() {
     setMessage("");
@@ -51,28 +52,89 @@ export default function Page() {
     setMessage("");
   }
 
+  async function handleSubmitNote() {
+    if (!worker || !selectedParticipant || !noteText.trim()) {
+      setMessage("Please enter a note");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const { error } = await supabase.from("service_notes").insert([
+      {
+        worker_id: worker.id,
+        participant_id: selectedParticipant.id,
+        note_text: noteText.trim(),
+      },
+    ]);
+
+    setSaving(false);
+
+    if (error) {
+      setMessage("Error saving note");
+      return;
+    }
+
+    setMessage("Note saved");
+    setNoteText("");
+  }
+
   if (selectedParticipant) {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700 }}>
         <h1>Supports Broker Service Notes</h1>
+
         <p>Worker: {worker.name}</p>
         <p>Participant: {selectedParticipant.name}</p>
- <textarea
-  placeholder="Write service note..."
-  value={noteText}
-  onChange={(e) => setNoteText(e.target.value)}
-  style={{
-    width: "100%",
-    height: 200,
-    marginTop: 20,
-    padding: 12,
-    fontSize: 16,
-    boxSizing: "border-box"
-  }}
-/>
-</main>
-);
-}
+
+        <textarea
+          placeholder="Write service note..."
+          value={noteText}
+          onChange={(e) => setNoteText(e.target.value)}
+          style={{
+            width: "100%",
+            height: 200,
+            marginTop: 20,
+            padding: 12,
+            fontSize: 16,
+            boxSizing: "border-box"
+          }}
+        />
+
+        <div style={{ marginTop: 15, display: "flex", gap: 10 }}>
+          <button
+            onClick={handleSubmitNote}
+            disabled={saving}
+            style={{
+              padding: "10px 18px",
+              fontSize: 16,
+              cursor: "pointer"
+            }}
+          >
+            {saving ? "Saving..." : "Submit Note"}
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedParticipant(null);
+              setNoteText("");
+              setMessage("");
+            }}
+            style={{
+              padding: "10px 18px",
+              fontSize: 16,
+              cursor: "pointer"
+            }}
+          >
+            Back
+          </button>
+        </div>
+
+        <p style={{ marginTop: 10 }}>{message}</p>
+      </main>
+    );
+  }
 
   if (worker) {
     return (
