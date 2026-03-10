@@ -70,7 +70,6 @@ export default function Page() {
     boxSizing: "border-box"
   }}
 />
-/>
       </main>
     );
   }
