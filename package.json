@@ -1,6 +1,7 @@
 {
   "name": "service-notes-app",
   "private": true,
+  "description": "supports broker notes",
   "scripts": {
     "dev": "next dev",
     "build": "next build"
