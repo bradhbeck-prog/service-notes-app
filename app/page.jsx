@@ -56,6 +56,17 @@ export default function Page() {
         <h1>Supports Broker Service Notes</h1>
         <p>Worker: {worker.name}</p>
         <p>Participant: {selectedParticipant.name}</p>
+        <textarea
+  placeholder="Write service note..."
+  style={{
+    width: "100%",
+    height: 200,
+    marginTop: 20,
+    padding: 12,
+    fontSize: 16,
+    boxSizing: "border-box"
+  }}
+/>
       </main>
     );
   }
