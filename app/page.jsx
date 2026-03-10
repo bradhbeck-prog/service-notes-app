@@ -70,19 +70,6 @@ export default function Page() {
     boxSizing: "border-box"
   }}
 />
-
-<button
-  onClick={handleSaveNote}
-  style={{
-    marginTop: 12,
-    padding: "10px 16px",
-    fontSize: 16,
-    cursor: "pointer"
-  }}
->
-  Save Note
-</button>
-
 </main>
 );
 }
