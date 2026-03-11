@@ -1,7 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../lib/supabase";
+
+function getTodayDate() {
+  return new Date().toISOString().split("T")[0];
+}
+
+function getCurrentTime() {
+  const now = new Date();
+  const hours = String(now.getHours()).padStart(2, "0");
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
 
 export default function Page() {
   const [pin, setPin] = useState("");
@@ -10,6 +22,17 @@ export default function Page() {
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [noteText, setNoteText] = useState("");
+  const [shiftDate, setShiftDate] = useState(getTodayDate());
+  const [timeIn, setTimeIn] = useState(getCurrentTime());
+  const [timeOut, setTimeOut] = useState(getCurrentTime());
+  const [location, setLocation] = useState("community");
+  const [service, setService] = useState("");
+  const [selectedGoals, setSelectedGoals] = useState([]);
+  const [signatureMode, setSignatureMode] = useState("typed");
+  const [typedSignature, setTypedSignature] = useState("");
+  const [signatureFont, setSignatureFont] = useState("Pacifico");
+  const sigCanvasRef = useRef(null);
+  const [drawnSignature, setDrawnSignature] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function handleLogin() {
@@ -44,7 +67,26 @@ export default function Page() {
 
     const { data: participantRows } = await supabase
       .from("participants")
-      .select("*")
+      .select(`
+        *,
+        participant_outcomes (
+          outcome_phrase,
+          outcome_statement,
+          outcome_action_plan
+        ),
+        participant_goals (
+          id,
+          goal_label,
+          sort_order,
+          active,
+          category_name
+        ),
+        participant_services (
+          id,
+          service_name,
+          active
+        )
+      `)
       .in("id", participantIds)
       .eq("active", true);
 
@@ -53,40 +95,329 @@ export default function Page() {
   }
 
   async function handleSubmitNote() {
-    if (!worker || !selectedParticipant || !noteText.trim()) {
-      setMessage("Please enter a note");
+    if (!worker || !selectedParticipant) {
+      setMessage("Missing worker or participant");
+      return;
+    }
+
+    if (!shiftDate || !timeIn || !timeOut || !noteText.trim()) {
+      setMessage("Please complete date, time in, time out, and note");
+      return;
+    }
+
+    setMessage("");
+
+    if (signatureMode === "typed" && !typedSignature.trim()) {
+      setMessage("Please type your signature before submitting.");
+      return;
+    }
+
+    if (signatureMode === "draw" && (!drawnSignature || sigCanvasRef.current?.isEmpty?.())) {
+      setMessage("Please draw your signature before submitting.");
       return;
     }
 
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase.from("service_notes").insert([
-      {
-        worker_id: worker.id,
-        participant_id: selectedParticipant.id,
-        note_text: noteText.trim(),
-      },
-    ]);
+    const insertPayload = {
+      worker_id: worker.id,
+      participant_id: selectedParticipant.id,
+      shift_date: shiftDate,
+      time_in: timeIn,
+      time_out: timeOut,
+      service: service,
+      location: location,
+      narrative: noteText.trim(),
+      worker_signature_mode: signatureMode,
+      worker_typed_signature: typedSignature,
+      worker_signature_font: signatureFont,
+      worker_signature_date: shiftDate,
+    };
 
-    setSaving(false);
+    const { data: noteInsert, error } = await supabase
+      .from("service_notes")
+      .insert([insertPayload])
+      .select()
+      .single();
 
     if (error) {
-      setMessage("Error saving note");
+      console.log("SUPABASE ERROR:", error);
+      setSaving(false);
+      setMessage(`Error saving note: ${error.message}`);
       return;
     }
 
-    setMessage("Note saved");
+    if (selectedGoals.length > 0) {
+      const goalRows = selectedGoals.map((goalId) => ({
+        service_note_id: noteInsert.id,
+        participant_goal_id: goalId,
+      }));
+
+      const { error: goalsError } = await supabase
+        .from("service_note_goals")
+        .insert(goalRows);
+
+      if (goalsError) {
+        console.log("GOALS ERROR:", goalsError);
+        setSaving(false);
+        setMessage(`Note saved, but goals failed to save: ${goalsError.message}`);
+        return;
+      }
+    }
+
+    try {
+      const res = await fetch("/api/generate-pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workerName: worker.name,
+          participantName: selectedParticipant.name,
+          cleEmail: selectedParticipant.cle_email,
+          shiftDate,
+          timeIn,
+          timeOut,
+          service,
+          location,
+          outcomePhrase: selectedParticipant.participant_outcomes?.[0]?.outcome_phrase || "",
+          outcomeStatement: selectedParticipant.participant_outcomes?.[0]?.outcome_statement || "",
+          outcomeActionPlan:
+            selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "",
+          selectedGoals:
+            selectedParticipant.participant_goals?.filter((goal) =>
+              selectedGoals.includes(goal.id)
+            ) || [],
+          noteText: noteText.trim(),
+          signatureMode,
+          typedSignature,
+          drawnSignature,
+          signatureFont,
+        }),
+      });
+
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const safeName = selectedParticipant.name
+          .replace(/[^a-z0-9]+/gi, "-")
+          .replace(/^-+|-+$/g, "");
+        a.download = `${safeName}-${shiftDate}-Service-Note.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        setMessage("Note saved and PDF downloaded");
+        setTypedSignature("");
+        setDrawnSignature("");
+
+        if (sigCanvasRef.current) {
+          sigCanvasRef.current.clear();
+        }
+
+        setSignatureMode("typed");
+      } else {
+        setMessage("Note saved, but PDF download failed");
+      }
+    } catch (err) {
+      console.error("PDF ERROR:", err);
+      setMessage("Note saved, but PDF download failed");
+    }
+
+    setSaving(false);
     setNoteText("");
+    setSelectedGoals([]);
+    setTimeIn(getCurrentTime());
+    setTimeOut(getCurrentTime());
   }
 
   if (selectedParticipant) {
     return (
-      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700 }}>
-        <h1>Supports Broker Service Notes</h1>
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
+        <h1>DreamNote</h1>
 
-        <p>Worker: {worker.name}</p>
-        <p>Participant: {selectedParticipant.name}</p>
+        <p>Support Service Professional: {worker.name}</p>
+        <p>Person Receiving Services: {selectedParticipant.name}</p>
+
+        <div style={{ display: "grid", gap: 12, marginTop: 20, maxWidth: 420 }}>
+          <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Shift Date</label>
+            <input
+              type="date"
+              value={shiftDate}
+              onChange={(e) => setShiftDate(e.target.value)}
+              style={{ width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Time In</label>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="time"
+                value={timeIn}
+                onChange={(e) => setTimeIn(e.target.value)}
+                style={{ flex: 1, padding: 10, fontSize: 16, boxSizing: "border-box" }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setTimeIn(getCurrentTime())}
+                style={{ padding: "10px 12px", fontSize: 14, cursor: "pointer" }}
+              >
+                Now
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Time Out</label>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="time"
+                value={timeOut}
+                onChange={(e) => setTimeOut(e.target.value)}
+                style={{ flex: 1, padding: 10, fontSize: 16, boxSizing: "border-box" }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setTimeOut(getCurrentTime())}
+                style={{ padding: "10px 12px", fontSize: 14, cursor: "pointer" }}
+              >
+                Now
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: "block", marginBottom: 6 }}>Service</label>
+
+            <select
+              value={service}
+              onChange={(e) => setService(e.target.value)}
+              style={{ width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+            >
+              {selectedParticipant.participant_services
+                ?.filter((s) => s.active)
+                .map((s) => (
+                  <option key={s.id} value={s.service_name}>
+                    {s.service_name}
+                  </option>
+                ))}
+            </select>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 15 }}>
+          <label style={{ display: "block", marginBottom: 6 }}>
+            Location of Services Provided
+          </label>
+
+          <label style={{ display: "block", marginBottom: 6 }}>
+            <input
+              type="radio"
+              name="location"
+              value="home"
+              checked={location === "home"}
+              onChange={(e) => setLocation(e.target.value)}
+              style={{ marginRight: 8 }}
+            />
+            Home
+          </label>
+
+          <label style={{ display: "block" }}>
+            <input
+              type="radio"
+              name="location"
+              value="community"
+              checked={location === "community"}
+              onChange={(e) => setLocation(e.target.value)}
+              style={{ marginRight: 8 }}
+            />
+            Community
+          </label>
+        </div>
+
+        <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>Outcome Information</h3>
+
+          <p>
+            <strong>Outcome Phrase:</strong>{" "}
+            {selectedParticipant.participant_outcomes?.[0]?.outcome_phrase || "Not set"}
+          </p>
+
+          <p>
+            <strong>Outcome Statement:</strong>{" "}
+            {selectedParticipant.participant_outcomes?.[0]?.outcome_statement || "Not set"}
+          </p>
+
+          <p>
+            <strong>Outcome Action Plan:</strong>{" "}
+            {selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "Not set"}
+          </p>
+        </div>
+
+        <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
+          <h3 style={{ marginTop: 0 }}>Goals</h3>
+
+          {selectedParticipant.participant_goals?.length ? (
+            <div style={{ display: "grid", gap: 8 }}>
+              {Object.entries(
+                (selectedParticipant.participant_goals || [])
+                  .filter((goal) => goal.active)
+                  .sort((a, b) => a.sort_order - b.sort_order)
+                  .reduce((acc, goal) => {
+                    const category = goal.category_name || "Goals";
+                    if (!acc[category]) acc[category] = [];
+                    acc[category].push(goal);
+                    return acc;
+                  }, {})
+              ).map(([category, goals]) => (
+                <div key={category}>
+                  <div style={{ fontWeight: "bold", marginTop: 10 }}>{category}</div>
+
+                  {goals.map((goal) => (
+                    <label key={goal.id} style={{ display: "block", marginLeft: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedGoals.includes(goal.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedGoals([...selectedGoals, goal.id]);
+                          } else {
+                            setSelectedGoals(selectedGoals.filter((id) => id !== goal.id));
+                          }
+                        }}
+                        style={{ marginRight: 8 }}
+                      />
+                      {goal.goal_label}
+                    </label>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No goals set.</p>
+          )}
+        </div>
+
+        <label
+          style={{
+            display: "block",
+            marginTop: 20,
+            marginBottom: 6,
+            fontWeight: "600",
+          }}
+        >
+          What activities were completed today, what support was given, and what progress was made?
+        </label>
 
         <textarea
           placeholder="Write service note..."
@@ -95,12 +426,155 @@ export default function Page() {
           style={{
             width: "100%",
             height: 200,
-            marginTop: 20,
             padding: 12,
             fontSize: 16,
-            boxSizing: "border-box"
+            boxSizing: "border-box",
           }}
         />
+
+        <div style={{ marginTop: 20 }}>
+          <label style={{ display: "block", marginBottom: 6 }}>Signature Type</label>
+
+          <label style={{ display: "block", marginBottom: 6 }}>
+            <input
+              type="radio"
+              name="signatureMode"
+              value="typed"
+              checked={signatureMode === "typed"}
+              onChange={(e) => setSignatureMode(e.target.value)}
+              style={{ marginRight: 8 }}
+            />
+            Type Signature
+          </label>
+
+          <label style={{ display: "block" }}>
+            <input
+              type="radio"
+              name="signatureMode"
+              value="draw"
+              checked={signatureMode === "draw"}
+              onChange={(e) => setSignatureMode(e.target.value)}
+              style={{ marginRight: 8 }}
+            />
+            Draw Signature
+          </label>
+        </div>
+
+        {signatureMode === "typed" && (
+          <div style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+            <label
+              htmlFor="typedSignature"
+              style={{
+                display: "block",
+                fontWeight: "600",
+                marginBottom: "0.4rem",
+              }}
+            >
+              SSP Signature
+            </label>
+            <input
+              id="typedSignature"
+              type="text"
+              value={typedSignature}
+              onChange={(e) => setTypedSignature(e.target.value)}
+              placeholder="Enter your full name"
+              style={{
+                width: "100%",
+                padding: "0.65rem",
+                fontSize: "1rem",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+              }}
+            />
+          </div>
+        )}
+
+        {signatureMode === "typed" && (
+          <div style={{ marginBottom: "1rem" }}>
+            <label
+              htmlFor="signatureFont"
+              style={{
+                display: "block",
+                fontWeight: "600",
+                marginBottom: "0.4rem",
+              }}
+            >
+              Signature Font
+            </label>
+            <select
+              id="signatureFont"
+              value={signatureFont}
+              onChange={(e) => setSignatureFont(e.target.value)}
+              style={{
+                width: "100%",
+                padding: "0.65rem",
+                fontSize: "1rem",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+              }}
+            >
+              <option value="Pacifico">Pacifico</option>
+              <option value="GreatVibes">Great Vibes</option>
+              <option value="Allura">Allura</option>
+              <option value="AlexBrush">Alex Brush</option>
+            </select>
+          </div>
+        )}
+
+        {signatureMode === "draw" && (
+          <div style={{ marginTop: "1rem", marginBottom: "1rem" }}>
+            <label
+              style={{
+                display: "block",
+                fontWeight: "600",
+                marginBottom: "0.4rem",
+              }}
+            >
+              SSP Signature
+            </label>
+
+            <div
+              style={{
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+                width: "100%",
+                height: 150,
+              }}
+            >
+              <SignatureCanvas
+                ref={sigCanvasRef}
+                penColor="black"
+                minWidth={1.5}
+                maxWidth={3}
+                canvasProps={{
+                  width: 500,
+                  height: 150,
+                  style: { width: "100%", height: "150px" },
+                }}
+                onEnd={() => {
+                  const dataURL = sigCanvasRef.current.toDataURL();
+                  setDrawnSignature(dataURL);
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                sigCanvasRef.current.clear();
+                setDrawnSignature("");
+              }}
+              style={{
+                marginTop: 8,
+                padding: "6px 12px",
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              Clear Signature
+            </button>
+          </div>
+        )}
 
         <div style={{ marginTop: 15, display: "flex", gap: 10 }}>
           <button
@@ -109,7 +583,7 @@ export default function Page() {
             style={{
               padding: "10px 18px",
               fontSize: 16,
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             {saving ? "Saving..." : "Submit Note"}
@@ -124,7 +598,7 @@ export default function Page() {
             style={{
               padding: "10px 18px",
               fontSize: 16,
-              cursor: "pointer"
+              cursor: "pointer",
             }}
           >
             Back
@@ -132,30 +606,51 @@ export default function Page() {
         </div>
 
         <p style={{ marginTop: 10 }}>{message}</p>
-      </main>
+  <div
+  style={{
+    width: "100%",
+    maxWidth: 500,
+    fontSize: 12,
+    color: "#666",
+    marginTop: 40,
+    paddingTop: 20,
+    borderTop: "1px solid #e5e5e5",
+    textAlign: "center",
+  }}
+>
+  DreamNote v1.0 by Brad Beck - Please send feedback to{" "}
+  <a href="mailto:bradley@supportsbroker.com">
+    bradley@supportsbroker.com
+  </a>
+</div>   
+</main>
     );
   }
 
   if (worker) {
     return (
-      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700 }}>
-        <h1>Supports Broker Service Notes</h1>
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
+        <h1>DreamNote</h1>
         <p>Welcome, {worker.name}</p>
-        <h2>Assigned Participants</h2>
+        <h2>Assigned Persons Receiving Services</h2>
 
         {participants.length === 0 ? (
-          <p>No participants assigned.</p>
+          <p>No persons receiving services assigned.</p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {participants.map((participant) => (
               <button
                 key={participant.id}
-                onClick={() => setSelectedParticipant(participant)}
+                onClick={() => {
+                  setSelectedParticipant(participant);
+                  const firstService = participant.participant_services?.find((s) => s.active);
+                  if (firstService) setService(firstService.service_name);
+                }}
                 style={{
                   padding: 12,
                   fontSize: 16,
                   textAlign: "left",
-                  cursor: "pointer"
+                  cursor: "pointer",
                 }}
               >
                 {participant.name}
@@ -163,41 +658,54 @@ export default function Page() {
             ))}
           </div>
         )}
-      </main>
+    
+</main>
     );
   }
 
   return (
-    <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500 }}>
-      <h1>Supports Broker Service Notes</h1>
+    <main
+      style={{
+        padding: 30,
+        fontFamily: "Arial",
+        maxWidth: 500,
+        margin: "0 auto",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <h1>DreamNote</h1>
 
-      <input
-        type="password"
-        placeholder="Enter worker PIN"
-        value={pin}
-        onChange={(e) => setPin(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 12,
-          fontSize: 16,
-          marginTop: 10,
-          marginBottom: 12,
-          boxSizing: "border-box"
-        }}
-      />
+        <input
+          type="password"
+          placeholder="Enter support service professional PIN"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          style={{
+            width: "100%",
+            padding: 12,
+            fontSize: 16,
+            marginTop: 10,
+            marginBottom: 12,
+            boxSizing: "border-box",
+          }}
+        />
 
-      <button
-        onClick={handleLogin}
-        style={{
-          padding: "10px 18px",
-          fontSize: 16,
-          cursor: "pointer"
-        }}
-      >
-        Sign in
-      </button>
+        <button
+          onClick={handleLogin}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+          }}
+        >
+          Sign in
+        </button>
 
-      <p>{message}</p>
+        <p>{message}</p>
+      </div>
     </main>
   );
 }
