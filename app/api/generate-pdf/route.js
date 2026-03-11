@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { sendServiceNoteEmail } from "../../../lib/sendEmail";
+import path from "path";
 
 export async function POST(req) {
   try {
@@ -91,15 +92,15 @@ export async function POST(req) {
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-    const fontPathMap = {
-      Pacifico: "public/fonts/Pacifico-Regular.ttf",
-      GreatVibes: "public/fonts/GreatVibes-Regular.ttf",
-      Allura: "public/fonts/Allura-Regular.ttf",
-      AlexBrush: "public/fonts/AlexBrush-Regular.ttf",
-    };
+const fontPathMap = {
+  Pacifico: path.join(process.cwd(), "public/fonts/Pacifico-Regular.ttf"),
+  GreatVibes: path.join(process.cwd(), "public/fonts/GreatVibes-Regular.ttf"),
+  Allura: path.join(process.cwd(), "public/fonts/Allura-Regular.ttf"),
+  AlexBrush: path.join(process.cwd(), "public/fonts/AlexBrush-Regular.ttf"),
+};
 
-    const selectedSignatureFontPath =
-      fontPathMap[signatureFont] ?? fontPathMap.Pacifico;
+const selectedSignatureFontPath =
+  fontPathMap[signatureFont] ?? fontPathMap.Pacifico;
 
     const fs = await import("fs/promises");
     const signatureFontBytes = await fs.readFile(selectedSignatureFontPath);
