@@ -349,11 +349,12 @@ const selectedSignatureFontPath =
 
     if (cleEmail) {
       try {
-        await sendServiceNoteEmail({
-          to: cleEmail,
-          participantName,
-          pdfBuffer,
-        });
+     await sendServiceNoteEmail({
+  to: cleEmail,
+  participantName,
+  workerName,
+  pdfBuffer,
+});
       } catch (emailError) {
         console.error("Email send failed:", emailError);
       }

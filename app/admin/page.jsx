@@ -25,9 +25,14 @@ export default function AdminPage() {
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
 
   const [goalParticipantId, setGoalParticipantId] = useState("");
-  const [goalCategoryName, setGoalCategoryName] = useState("");
-  const [goalLabel, setGoalLabel] = useState("");
-  const [goalSortOrder, setGoalSortOrder] = useState("1");
+const [goalCategoryName, setGoalCategoryName] = useState("");
+const [goalLabel, setGoalLabel] = useState("");
+const [goalSortOrder, setGoalSortOrder] = useState("1");
+
+const [editingGoalId, setEditingGoalId] = useState("");
+const [editGoalCategoryName, setEditGoalCategoryName] = useState("");
+const [editGoalLabel, setEditGoalLabel] = useState("");
+const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
 
   const [serviceParticipantId, setServiceParticipantId] = useState("");
   const [serviceName, setServiceName] = useState("");
@@ -41,122 +46,71 @@ export default function AdminPage() {
   const [editingParticipantName, setEditingParticipantName] = useState("");
   const [editingParticipantCleEmail, setEditingParticipantCleEmail] = useState("");
 
+  const [pinEditWorkerId, setPinEditWorkerId] = useState("");
+  const [newWorkerPin, setNewWorkerPin] = useState("");
+
+  const [deleteWorkerId, setDeleteWorkerId] = useState("");
+  const [deleteParticipantId, setDeleteParticipantId] = useState("");
+  const [removeAssignmentWorkerId, setRemoveAssignmentWorkerId] = useState("");
+  const [removeAssignmentParticipantId, setRemoveAssignmentParticipantId] = useState("");
+
   useEffect(() => {
     if (!authorized) return;
     loadData();
   }, [authorized]);
 
-  async function fetchWorkers() {
-    const { data } = await supabase.from("workers").select("*").order("name");
-    if (data) setWorkers(data);
+  async function loadData() {
+    setMessage("");
+
+    const { data: workerRows } = await supabase
+      .from("workers")
+      .select("*")
+      .order("name");
+
+    const { data: participantRows } = await supabase
+      .from("participants")
+      .select(`
+        *,
+        participant_goals (
+          id,
+          goal_label,
+          category_name,
+          sort_order,
+          active
+        ),
+        participant_services (
+          id,
+          service_name,
+          active
+        ),
+        participant_outcomes (
+          id,
+          outcome_phrase,
+          outcome_statement,
+          outcome_action_plan
+        )
+      `)
+      .order("name");
+
+    const { data: assignmentRows } = await supabase
+      .from("worker_participants")
+      .select("*");
+
+    setWorkers(workerRows || []);
+    setParticipants(participantRows || []);
+    setAssignments(assignmentRows || []);
   }
-
-  async function fetchParticipants() {
-    const { data } = await supabase.from("participants").select("*").order("name");
-    if (data) setParticipants(data);
-  }
-
-  async function fetchAssignments() {
-    const { data } = await supabase.from("worker_participants").select("*");
-    if (data) setAssignments(data);
-  }
-
-  if (!authorized) {
-    function handleAdminLogin(e) {
-      e.preventDefault();
-
-      if (adminPin === process.env.NEXT_PUBLIC_ADMIN_PIN) {
-        setAuthorized(true);
-        setMessage("");
-      } else {
-        setMessage("Incorrect admin PIN");
-      }
-    }
-
-    return (
-      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500, margin: "0 auto" }}>
-        <h1>DreamNote Admin</h1>
-
-        <form onSubmit={handleAdminLogin}>
-          <input
-            type="password"
-            placeholder="Enter Admin PIN"
-            value={adminPin}
-            onChange={(e) => setAdminPin(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 12,
-              fontSize: 16,
-              marginTop: 10,
-              marginBottom: 12,
-              boxSizing: "border-box"
-            }}
-          />
-
-          <button
-            type="submit"
-            style={{
-              padding: "10px 18px",
-              fontSize: 16,
-              cursor: "pointer"
-            }}
-          >
-            Enter
-          </button>
-        </form>
-
-        <p style={{ marginTop: 12 }}>{message}</p>
-      </main>
-    );
-  }
-
-async function loadData() {
-  setMessage("");
-
-  const { data: workerRows } = await supabase
-    .from("workers")
-    .select("*")
-    .order("name");
-
-  const { data: participantRows } = await supabase
-    .from("participants")
-    .select(`
-      *,
-      participant_goals (
-        id,
-        goal_label,
-        category_name,
-        sort_order,
-        active
-      ),
-      participant_services (
-        id,
-        service_name,
-        active
-      ),
-      participant_outcomes (
-        id,
-        outcome_phrase,
-        outcome_statement,
-        outcome_action_plan
-      )
-    `)
-    .order("name");
-
-  const { data: assignmentRows } = await supabase
-    .from("worker_participants")
-    .select("*");
-
-  setWorkers(workerRows || []);
-  setParticipants(participantRows || []);
-  setAssignments(assignmentRows || []);
-}
 
   async function handleAddWorker() {
     setMessage("");
 
     if (!workerName.trim() || !workerPin.trim()) {
       setMessage("Enter worker name and PIN.");
+      return;
+    }
+
+    if (workerPin.trim() === process.env.NEXT_PUBLIC_ADMIN_PIN) {
+      setMessage("That PIN is reserved for admin. Please choose a different PIN.");
       return;
     }
 
@@ -168,18 +122,91 @@ async function loadData() {
       },
     ]);
 
-if (error) {
-  if (error.code === "23505") {
-    setMessage("That PIN is already in use. Please choose a different PIN.");
-  } else {
-    setMessage(`Error adding worker: ${error.message}`);
-  }
-  return;
-}
+    if (error) {
+      if (error.code === "23505") {
+        setMessage("That PIN is already in use. Please choose a different PIN.");
+      } else {
+        setMessage(`Error adding worker: ${error.message}`);
+      }
+      return;
+    }
 
     setWorkerName("");
     setWorkerPin("");
     setMessage("Worker added.");
+    loadData();
+  }
+
+  async function handleUpdateWorkerPin() {
+    setMessage("");
+
+    if (!pinEditWorkerId || !newWorkerPin.trim()) {
+      setMessage("Select a worker and enter a new PIN.");
+      return;
+    }
+
+    if (newWorkerPin.trim() === process.env.NEXT_PUBLIC_ADMIN_PIN) {
+      setMessage("That PIN is reserved for admin. Please choose a different PIN.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("workers")
+      .update({ pin: newWorkerPin.trim() })
+      .eq("id", pinEditWorkerId);
+
+    if (error) {
+      if (error.code === "23505") {
+        setMessage("That PIN is already in use. Please choose a different PIN.");
+      } else {
+        setMessage(`Error updating worker PIN: ${error.message}`);
+      }
+      return;
+    }
+
+    setPinEditWorkerId("");
+    setNewWorkerPin("");
+    setMessage("Worker PIN updated.");
+    loadData();
+  }
+
+  async function handleDeleteWorker() {
+    setMessage("");
+
+    if (!deleteWorkerId) {
+      setMessage("Select a worker to remove.");
+      return;
+    }
+
+    const worker = workers.find((w) => w.id === deleteWorkerId);
+    const confirmed = window.confirm(
+      `Remove worker${worker ? ` "${worker.name}"` : ""}? This will also remove their participant assignments.`
+    );
+
+    if (!confirmed) return;
+
+    const { error: assignmentError } = await supabase
+      .from("worker_participants")
+      .delete()
+      .eq("worker_id", deleteWorkerId);
+
+    if (assignmentError) {
+      setMessage(`Error removing worker assignments: ${assignmentError.message}`);
+      return;
+    }
+
+    const { error: workerError } = await supabase
+      .from("workers")
+      .delete()
+      .eq("id", deleteWorkerId);
+
+    if (workerError) {
+      setMessage(`Error removing worker: ${workerError.message}`);
+      return;
+    }
+
+    setDeleteWorkerId("");
+    setMessage("Worker removed.");
     loadData();
   }
 
@@ -261,6 +288,76 @@ if (error) {
     loadData();
   }
 
+  async function handleDeleteParticipant() {
+    setMessage("");
+
+    if (!deleteParticipantId) {
+      setMessage("Select a participant to remove.");
+      return;
+    }
+
+    const participant = participants.find((p) => p.id === deleteParticipantId);
+    const confirmed = window.confirm(
+      `Remove participant${participant ? ` "${participant.name}"` : ""}? This will also remove assignments, goals, services, and outcomes tied to that participant.`
+    );
+
+    if (!confirmed) return;
+
+    const { error: assignmentError } = await supabase
+      .from("worker_participants")
+      .delete()
+      .eq("participant_id", deleteParticipantId);
+
+    if (assignmentError) {
+      setMessage(`Error removing participant assignments: ${assignmentError.message}`);
+      return;
+    }
+
+    const { error: goalError } = await supabase
+      .from("participant_goals")
+      .delete()
+      .eq("participant_id", deleteParticipantId);
+
+    if (goalError) {
+      setMessage(`Error removing participant goals: ${goalError.message}`);
+      return;
+    }
+
+    const { error: serviceError } = await supabase
+      .from("participant_services")
+      .delete()
+      .eq("participant_id", deleteParticipantId);
+
+    if (serviceError) {
+      setMessage(`Error removing participant services: ${serviceError.message}`);
+      return;
+    }
+
+    const { error: outcomeError } = await supabase
+      .from("participant_outcomes")
+      .delete()
+      .eq("participant_id", deleteParticipantId);
+
+    if (outcomeError) {
+      setMessage(`Error removing participant outcomes: ${outcomeError.message}`);
+      return;
+    }
+
+    const { error: participantError } = await supabase
+      .from("participants")
+      .delete()
+      .eq("id", deleteParticipantId);
+
+    if (participantError) {
+      setMessage(`Error removing participant: ${participantError.message}`);
+      return;
+    }
+
+    setDeleteParticipantId("");
+    setMessage("Participant removed.");
+    loadData();
+  }
+
   async function handleAssignWorker() {
     setMessage("");
 
@@ -296,6 +393,31 @@ if (error) {
     loadData();
   }
 
+  async function handleRemoveAssignment() {
+    setMessage("");
+
+    if (!removeAssignmentWorkerId || !removeAssignmentParticipantId) {
+      setMessage("Select a worker and participant assignment to remove.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("worker_participants")
+      .delete()
+      .eq("worker_id", removeAssignmentWorkerId)
+      .eq("participant_id", removeAssignmentParticipantId);
+
+    if (error) {
+      setMessage(`Error removing assignment: ${error.message}`);
+      return;
+    }
+
+    setRemoveAssignmentWorkerId("");
+    setRemoveAssignmentParticipantId("");
+    setMessage("Assignment removed.");
+    loadData();
+  }
+
   async function handleAddGoal() {
     setMessage("");
 
@@ -327,6 +449,52 @@ if (error) {
     loadData();
   }
 
+async function handleDeleteGoal(goalId) {
+  setMessage("");
+
+  const { error } = await supabase
+    .from("participant_goals")
+    .delete()
+    .eq("id", goalId);
+
+  if (error) {
+    setMessage(`Error deleting goal: ${error.message}`);
+    return;
+  }
+
+  setMessage("Goal removed.");
+  loadData();
+}
+async function handleUpdateGoal() {
+  setMessage("");
+
+  if (!editingGoalId || !editGoalLabel.trim()) {
+    setMessage("Enter a goal to update.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("participant_goals")
+    .update({
+      category_name: editGoalCategoryName.trim() || "Goals",
+      goal_label: editGoalLabel.trim(),
+      sort_order: Number(editGoalSortOrder) || 1
+    })
+    .eq("id", editingGoalId);
+
+  if (error) {
+    setMessage(`Error updating goal: ${error.message}`);
+    return;
+  }
+
+  setEditingGoalId("");
+  setEditGoalCategoryName("");
+  setEditGoalLabel("");
+  setEditGoalSortOrder("1");
+
+  setMessage("Goal updated.");
+  loadData();
+}
   async function handleAddService() {
     setMessage("");
 
@@ -433,6 +601,66 @@ if (error) {
     loadData();
   }
 
+  function getAssignedParticipantNames(workerId) {
+    const participantIdsForWorker = assignments
+      .filter((assignment) => assignment.worker_id === workerId)
+      .map((assignment) => assignment.participant_id);
+
+    return participants
+      .filter((participant) => participantIdsForWorker.includes(participant.id))
+      .map((participant) => participant.name)
+      .join(", ");
+  }
+
+  if (!authorized) {
+    function handleAdminLogin(e) {
+      e.preventDefault();
+
+      if (adminPin === process.env.NEXT_PUBLIC_ADMIN_PIN) {
+        setAuthorized(true);
+        setMessage("");
+      } else {
+        setMessage("Incorrect admin PIN");
+      }
+    }
+
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500, margin: "0 auto" }}>
+        <h1>DreamNote Admin</h1>
+
+        <form onSubmit={handleAdminLogin}>
+          <input
+            type="password"
+            placeholder="Enter Admin PIN"
+            value={adminPin}
+            onChange={(e) => setAdminPin(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 12,
+              fontSize: 16,
+              marginTop: 10,
+              marginBottom: 12,
+              boxSizing: "border-box"
+            }}
+          />
+
+          <button
+            type="submit"
+            style={{
+              padding: "10px 18px",
+              fontSize: 16,
+              cursor: "pointer"
+            }}
+          >
+            Enter
+          </button>
+        </form>
+
+        <p style={{ marginTop: 12 }}>{message}</p>
+      </main>
+    );
+  }
+
   return (
     <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
       <h1>DreamNote Admin</h1>
@@ -461,6 +689,57 @@ if (error) {
           />
           <button onClick={handleAddWorker} style={{ padding: 10, fontSize: 16 }}>
             Add Worker
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
+        <h2>Change Worker PIN</h2>
+        <div style={{ display: "grid", gap: 10, maxWidth: 400 }}>
+          <select
+            value={pinEditWorkerId}
+            onChange={(e) => setPinEditWorkerId(e.target.value)}
+            style={{ padding: 10, fontSize: 16 }}
+          >
+            <option value="">Select worker</option>
+            {workers.map((worker) => (
+              <option key={worker.id} value={worker.id}>
+                {worker.name}
+              </option>
+            ))}
+          </select>
+
+          <input
+            placeholder="New PIN"
+            value={newWorkerPin}
+            onChange={(e) => setNewWorkerPin(e.target.value)}
+            style={{ padding: 10, fontSize: 16 }}
+          />
+
+          <button onClick={handleUpdateWorkerPin} style={{ padding: 10, fontSize: 16 }}>
+            Update Worker PIN
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
+        <h2>Remove Worker</h2>
+        <div style={{ display: "grid", gap: 10, maxWidth: 400 }}>
+          <select
+            value={deleteWorkerId}
+            onChange={(e) => setDeleteWorkerId(e.target.value)}
+            style={{ padding: 10, fontSize: 16 }}
+          >
+            <option value="">Select worker</option>
+            {workers.map((worker) => (
+              <option key={worker.id} value={worker.id}>
+                {worker.name}
+              </option>
+            ))}
+          </select>
+
+          <button onClick={handleDeleteWorker} style={{ padding: 10, fontSize: 16 }}>
+            Remove Worker
           </button>
         </div>
       </section>
@@ -553,6 +832,28 @@ if (error) {
       </section>
 
       <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
+        <h2>Remove Participant</h2>
+        <div style={{ display: "grid", gap: 10, maxWidth: 500 }}>
+          <select
+            value={deleteParticipantId}
+            onChange={(e) => setDeleteParticipantId(e.target.value)}
+            style={{ padding: 10, fontSize: 16 }}
+          >
+            <option value="">Select participant</option>
+            {participants.map((participant) => (
+              <option key={participant.id} value={participant.id}>
+                {participant.name}
+              </option>
+            ))}
+          </select>
+
+          <button onClick={handleDeleteParticipant} style={{ padding: 10, fontSize: 16 }}>
+            Remove Participant
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
         <h2>Assign Worker to Participant</h2>
         <div style={{ display: "grid", gap: 10, maxWidth: 500 }}>
           <select
@@ -583,6 +884,51 @@ if (error) {
 
           <button onClick={handleAssignWorker} style={{ padding: 10, fontSize: 16 }}>
             Add Assignment
+          </button>
+        </div>
+      </section>
+
+      <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
+        <h2>Remove Worker from Participant</h2>
+        <div style={{ display: "grid", gap: 10, maxWidth: 500 }}>
+          <select
+            value={removeAssignmentWorkerId}
+            onChange={(e) => setRemoveAssignmentWorkerId(e.target.value)}
+            style={{ padding: 10, fontSize: 16 }}
+          >
+            <option value="">Select worker</option>
+            {workers.map((worker) => (
+              <option key={worker.id} value={worker.id}>
+                {worker.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={removeAssignmentParticipantId}
+            onChange={(e) => setRemoveAssignmentParticipantId(e.target.value)}
+            style={{ padding: 10, fontSize: 16 }}
+          >
+            <option value="">Select participant</option>
+            {participants
+              .filter((participant) =>
+                removeAssignmentWorkerId
+                  ? assignments.some(
+                      (assignment) =>
+                        assignment.worker_id === removeAssignmentWorkerId &&
+                        assignment.participant_id === participant.id
+                    )
+                  : true
+              )
+              .map((participant) => (
+                <option key={participant.id} value={participant.id}>
+                  {participant.name}
+                </option>
+              ))}
+          </select>
+
+          <button onClick={handleRemoveAssignment} style={{ padding: 10, fontSize: 16 }}>
+            Remove Assignment
           </button>
         </div>
       </section>
@@ -629,7 +975,49 @@ if (error) {
           </button>
         </div>
       </section>
+{editingGoalId && (
+  <section style={{ marginTop: 12, padding: 12, border: "1px solid #ccc", borderRadius: 8 }}>
+    <h3>Edit Goal</h3>
 
+    <input
+      type="text"
+      placeholder="Category name"
+      value={editGoalCategoryName}
+      onChange={(e) => setEditGoalCategoryName(e.target.value)}
+      style={{ display: "block", marginBottom: 8, width: "100%" }}
+    />
+
+    <input
+      type="text"
+      placeholder="Goal label"
+      value={editGoalLabel}
+      onChange={(e) => setEditGoalLabel(e.target.value)}
+      style={{ display: "block", marginBottom: 8, width: "100%" }}
+    />
+
+    <input
+      type="number"
+      placeholder="Sort order"
+      value={editGoalSortOrder}
+      onChange={(e) => setEditGoalSortOrder(e.target.value)}
+      style={{ display: "block", marginBottom: 8, width: 120 }}
+    />
+
+    <div style={{ display: "flex", gap: 8 }}>
+      <button onClick={handleUpdateGoal}>Save Goal</button>
+      <button
+        onClick={() => {
+          setEditingGoalId("");
+          setEditGoalCategoryName("");
+          setEditGoalLabel("");
+          setEditGoalSortOrder("1");
+        }}
+      >
+        Cancel
+      </button>
+    </div>
+  </section>
+)}
       <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
         <h2>Add Service</h2>
         <div style={{ display: "grid", gap: 10, maxWidth: 500 }}>
@@ -711,6 +1099,25 @@ if (error) {
       </section>
 
       <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
+        <h2>Current Workers</h2>
+        <div style={{ display: "grid", gap: 14 }}>
+          {workers.map((worker) => (
+            <div
+              key={worker.id}
+              style={{ padding: 12, border: "1px solid #e5e5e5", borderRadius: 6 }}
+            >
+              <div><strong>{worker.name}</strong></div>
+              <div>PIN: {worker.pin}</div>
+              <div style={{ marginTop: 8 }}>
+                <strong>Assigned Participants:</strong>{" "}
+                {getAssignedParticipantNames(worker.id) || "None"}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
         <h2>Current Participants</h2>
         <div style={{ display: "grid", gap: 14 }}>
           {participants.map((participant) => (
@@ -735,11 +1142,33 @@ if (error) {
                   {(participant.participant_goals || [])
                     .filter((g) => g.active)
                     .sort((a, b) => a.sort_order - b.sort_order)
-                    .map((goal) => (
-                      <li key={goal.id}>
-                        {goal.category_name || "Goals"}: {goal.goal_label}
-                      </li>
-                    ))}
+.map((goal) => (
+  <li
+    key={goal.id}
+    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
+  >
+    <span>
+      {goal.sort_order}. {goal.category_name || "Goals"}: {goal.goal_label}
+    </span>
+
+    <div style={{ display: "flex", gap: 8 }}>
+      <button
+        onClick={() => {
+          setEditingGoalId(goal.id);
+          setEditGoalCategoryName(goal.category_name || "Goals");
+          setEditGoalLabel(goal.goal_label || "");
+          setEditGoalSortOrder(String(goal.sort_order || 1));
+        }}
+      >
+        Edit
+      </button>
+
+      <button onClick={() => handleDeleteGoal(goal.id)}>
+        Delete
+      </button>
+    </div>
+  </li>
+))}
                 </ul>
               </div>
             </div>

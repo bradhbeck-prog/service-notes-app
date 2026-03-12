@@ -87,14 +87,19 @@ export default function Page() {
           active
         )
       `)
-      .in("id", participantIds)
-      .eq("active", true);
+.in("id", participantIds)
+.eq("active", true);
 
-    setParticipants(participantRows || []);
-    setMessage("");
-  }
+setParticipants(participantRows || []);
 
-  async function handleSubmitNote() {
+if (participantRows?.length === 1) {
+  setSelectedParticipant(participantRows[0]);
+}
+
+setMessage("");
+}
+
+async function handleSubmitNote() {
     if (!worker || !selectedParticipant) {
       setMessage("Missing worker or participant");
       return;
@@ -365,7 +370,7 @@ export default function Page() {
         </div>
 
         <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>Goals</h3>
+          <h3 style={{ margin: 0 }}>Goals worked on today</h3>
 
           {selectedParticipant.participant_goals?.length ? (
             <div style={{ display: "grid", gap: 8 }}>
