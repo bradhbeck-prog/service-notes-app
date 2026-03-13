@@ -532,9 +532,6 @@ pages.forEach((p, index) => {
   );
 });
 
-const pages = pdfDoc.getPages();
-const totalPages = pages.length;
-
 pages.forEach((p, index) => {
   p.drawText(
     `${participantName} – ${formattedDate} – Page ${index + 1} of ${totalPages}`,
