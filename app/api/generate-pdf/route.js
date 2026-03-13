@@ -181,7 +181,7 @@ export async function POST(req) {
       const textSize = size;
       const labelGap = 14;
       const afterBlockGap = 8;
-      const lineHeight = size <= 8 ? 10 : size + 2;
+      const lineHeight = size <= 8 ? 9 : size + 1.5;
       const textWidth = 470;
 
       const phraseHeight = getWrappedTextHeight(
@@ -241,7 +241,7 @@ export async function POST(req) {
     const noteHeight = estimateNoteHeight(noteText);
     const signatureHeight = estimateSignatureHeight();
 
-    const outcomeFontCandidates = [9, 8.5, 8, 7.5];
+    const outcomeFontCandidates = [9, 8.5, 8, 7.5, 7];
     let outcomeLayout = getOutcomeLayout(9);
 
     const remainingHeightAfterHeader =
@@ -443,23 +443,30 @@ export async function POST(req) {
       wrapText(paragraph || " ", font, 12, CONTENT_WIDTH)
     );
 
-    const totalNoteHeight =
-      20 +
-      noteLinesByParagraph.reduce((sum, lines) => sum + lines.length * 16, 0);
+  page.drawText("Note:", { x: 50, y, size: 12, font });
 
-    ensureSpace(totalNoteHeight);
+y -= 20;
 
-    page.drawText("Note:", { x: 50, y, size: 12, font });
-
-    y -= 20;
-
-    for (const paragraphLines of noteLinesByParagraph) {
-      if (y - paragraphLines.length * 16 < BOTTOM + 70) {
-        newPage();
-      }
-
-      y = drawWrappedLines(page, paragraphLines, 50, y, 16, font, 12);
+for (const paragraphLines of noteLinesByParagraph) {
+  for (const line of paragraphLines) {
+    if (y < BOTTOM + 70) {
+      newPage();
+      page.drawText("Note (continued):", { x: 50, y, size: 12, font });
+      y -= 20;
     }
+
+    page.drawText(line, {
+      x: 50,
+      y,
+      size: 12,
+      font,
+    });
+
+    y -= 16;
+  }
+
+  y -= 4;
+}
 
     y -= 24;
 
@@ -509,6 +516,36 @@ export async function POST(req) {
       size: 12,
       font,
     });
+
+const pages = pdfDoc.getPages();
+const totalPages = pages.length;
+
+pages.forEach((p, index) => {
+  p.drawText(
+    `${participantName} – ${formattedDate} – Page ${index + 1} of ${totalPages}`,
+    {
+      x: 50,
+      y: 20,
+      size: 9,
+      font,
+    }
+  );
+});
+
+const pages = pdfDoc.getPages();
+const totalPages = pages.length;
+
+pages.forEach((p, index) => {
+  p.drawText(
+    `${participantName} – ${formattedDate} – Page ${index + 1} of ${totalPages}`,
+    {
+      x: 50,
+      y: 20,
+      size: 9,
+      font,
+    }
+  );
+});
 
     const pdfBytes = await pdfDoc.save();
     const pdfBuffer = Buffer.from(pdfBytes);
