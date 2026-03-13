@@ -623,7 +623,7 @@ async function handleSubmitNote() {
     textAlign: "center",
   }}
 >
-  DreamNote v1.0 by Brad Beck - Please send feedback to{" "}
+  DreamNote Beta by Brad Beck - Please send feedback to{" "}
   <a href="mailto:bradley@supportsbroker.com">
     bradley@supportsbroker.com
   </a>
