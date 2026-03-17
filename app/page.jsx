@@ -33,7 +33,50 @@ export default function Page() {
   const [signatureFont, setSignatureFont] = useState("Pacifico");
   const sigCanvasRef = useRef(null);
   const [drawnSignature, setDrawnSignature] = useState("");
-  const [saving, setSaving] = useState(false);
+const [saving, setSaving] = useState(false);
+const [currentNoteId, setCurrentNoteId] = useState(null);
+const [hasDraft, setHasDraft] = useState(false);
+const [loadingDraft, setLoadingDraft] = useState(true);
+
+useEffect(() => {
+  if (!worker) return;
+
+  const loadDraft = async () => {
+    setLoadingDraft(true);
+
+    const { data, error } = await supabase
+      .from("service_notes")
+      .select("*")
+      .eq("worker_id", worker.id)
+      .eq("status", "draft")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data) {
+      setHasDraft(true);
+      setCurrentNoteId(data.id);
+
+      // preload fields
+const matchingParticipant = participants.find(
+  (p) => p.id === data.participant_id
+);
+
+setSelectedParticipant(matchingParticipant || data.participant_id);
+      setNoteText(data.note_text || "");
+      setShiftDate(data.shift_date || getTodayDate());
+      setTimeIn(data.time_in || getCurrentTime());
+      setTimeOut(data.time_out || getCurrentTime());
+      setLocation(data.location || "community");
+      setService(data.service || "");
+      setSelectedGoals(data.goals || []);
+    }
+
+    setLoadingDraft(false);
+  };
+
+  loadDraft();
+}, [worker]);
 
   async function handleLogin() {
     setMessage("");
@@ -562,38 +605,58 @@ async function handleSubmitNote() {
                 }}
               />
             </div>
+<div style={{ marginTop: 15, display: "flex", gap: 10 }}>
+  <button
+    onClick={handleSubmitNote}
+    disabled={saving}
+    style={{
+      padding: "10px 18px",
+      fontSize: 16,
+      cursor: "pointer",
+    }}
+  >
+    {saving ? "Saving..." : "Submit Note"}
+  </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                sigCanvasRef.current.clear();
-                setDrawnSignature("");
-              }}
-              style={{
-                marginTop: 8,
-                padding: "6px 12px",
-                fontSize: 14,
-                cursor: "pointer",
-              }}
-            >
-              Clear Signature
-            </button>
-          </div>
-        )}
+  <button
+    onClick={handleSaveDraft}
+    disabled={saving}
+    style={{
+      padding: "10px 18px",
+      fontSize: 16,
+      cursor: "pointer",
+    }}
+  >
+    {saving ? "Saving..." : "Save Draft"}
+  </button>
 
-        <div style={{ marginTop: 15, display: "flex", gap: 10 }}>
-          <button
-            onClick={handleSubmitNote}
-            disabled={saving}
-            style={{
-              padding: "10px 18px",
-              fontSize: 16,
-              cursor: "pointer",
-            }}
-          >
-            {saving ? "Saving..." : "Submit Note"}
-          </button>
+  <button
+    onClick={handleDeleteDraft}
+    disabled={saving}
+    style={{
+      padding: "10px 18px",
+      fontSize: 16,
+      cursor: "pointer",
+    }}
+  >
+    Delete Draft
+  </button>
 
+  <button
+    onClick={() => {
+      setSelectedParticipant(null);
+      setNoteText("");
+      setMessage("");
+    }}
+    style={{
+      padding: "10px 18px",
+      fontSize: 16,
+      cursor: "pointer",
+    }}
+  >
+    Back
+  </button>
+</div>
           <button
             onClick={() => {
               setSelectedParticipant(null);
@@ -631,7 +694,14 @@ async function handleSubmitNote() {
 </main>
     );
   }
-
+if (worker && loadingDraft) {
+  return (
+    <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
+      <h1>DreamNote</h1>
+      <p>Loading saved note...</p>
+    </main>
+  );
+}
   if (worker) {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
@@ -646,11 +716,36 @@ async function handleSubmitNote() {
             {participants.map((participant) => (
               <button
                 key={participant.id}
-                onClick={() => {
-                  setSelectedParticipant(participant);
-                  const firstService = participant.participant_services?.find((s) => s.active);
-                  if (firstService) setService(firstService.service_name);
-                }}
+onClick={async () => {
+  setSelectedParticipant(participant);
+
+  const firstService = participant.participant_services?.find((s) => s.active);
+  if (firstService) setService(firstService.service_name);
+
+  // create draft if one doesn't exist
+  if (hasDraft) return;
+
+  const { data, error } = await supabase
+    .from("service_notes")
+    .insert([
+      {
+        worker_id: worker.id,
+        participant_id: participant.id,
+        shift_date: getTodayDate(),
+        time_in: getCurrentTime(),
+        time_out: getCurrentTime(),
+        location: "community",
+        status: "draft",
+      },
+    ])
+    .select()
+    .single();
+
+  if (data) {
+    setCurrentNoteId(data.id);
+    setHasDraft(true);
+  }
+}}
                 style={{
                   padding: 12,
                   fontSize: 16,
@@ -667,50 +762,127 @@ async function handleSubmitNote() {
 </main>
     );
   }
+async function handleSaveDraft() {
+  if (!currentNoteId) {
+    setMessage("No draft to save.");
+    return;
+  }
 
-  return (
-    <main
-      style={{
-        padding: 30,
-        fontFamily: "Arial",
-        maxWidth: 500,
-        margin: "0 auto",
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <div style={{ flex: 1 }}>
-        <h1>DreamNote</h1>
+  setSaving(true);
+  setMessage("");
 
-        <input
-          type="password"
-          placeholder="Enter support service professional PIN"
-          value={pin}
-          onChange={(e) => setPin(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 12,
-            fontSize: 16,
-            marginTop: 10,
-            marginBottom: 12,
-            boxSizing: "border-box",
-          }}
-        />
+  const participantObject =
+    typeof selectedParticipant === "object"
+      ? selectedParticipant
+      : participants.find((p) => p.id === selectedParticipant);
 
-        <button
-          onClick={handleLogin}
-          style={{
-            padding: "10px 18px",
-            fontSize: 16,
-            cursor: "pointer",
-          }}
-        >
-          Sign in
-        </button>
+  const { error } = await supabase
+    .from("service_notes")
+    .update({
+      participant_id: participantObject?.id || selectedParticipant,
+      note_text: noteText,
+      shift_date: shiftDate,
+      time_in: timeIn,
+      time_out: timeOut,
+      location,
+      service,
+      goals: selectedGoals,
+      signature_mode: signatureMode,
+      typed_signature: signatureMode === "typed" ? typedSignature : null,
+      drawn_signature: signatureMode === "drawn" ? drawnSignature : null,
+      status: "draft",
+    })
+    .eq("id", currentNoteId);
 
-        <p>{message}</p>
-      </div>
-    </main>
-  );
+  setSaving(false);
+
+  if (error) {
+    setMessage("Could not save draft.");
+    return;
+  }
+
+  setMessage("Draft saved.");
+}
+
+async function handleDeleteDraft() {
+  if (!currentNoteId) {
+    setMessage("No draft to delete.");
+    return;
+  }
+
+  setSaving(true);
+  setMessage("");
+
+  const { error } = await supabase
+    .from("service_notes")
+    .delete()
+    .eq("id", currentNoteId);
+
+  setSaving(false);
+
+  if (error) {
+    setMessage("Could not delete draft.");
+    return;
+  }
+
+  setCurrentNoteId(null);
+  setHasDraft(false);
+  setSelectedParticipant(null);
+  setNoteText("");
+  setShiftDate(getTodayDate());
+  setTimeIn(getCurrentTime());
+  setTimeOut(getCurrentTime());
+  setLocation("community");
+  setService("");
+  setSelectedGoals([]);
+  setTypedSignature("");
+  setDrawnSignature("");
+  setMessage("Draft deleted.");
+}
+
+return (
+  <main
+    style={{
+      padding: 30,
+      fontFamily: "Arial",
+      maxWidth: 500,
+      margin: "0 auto",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+    }}
+  >
+    <div style={{ flex: 1 }}>
+      <h1>DreamNote</h1>
+
+      <input
+        type="password"
+        placeholder="Enter support service professional PIN"
+        value={pin}
+        onChange={(e) => setPin(e.target.value)}
+        style={{
+          width: "100%",
+          padding: 12,
+          fontSize: 16,
+          marginTop: 10,
+          marginBottom: 12,
+          boxSizing: "border-box",
+        }}
+      />
+
+      <button
+        onClick={handleLogin}
+        style={{
+          padding: "10px 18px",
+          fontSize: 16,
+          cursor: "pointer",
+        }}
+      >
+        Sign in
+      </button>
+
+      <p>{message}</p>
+    </div>
+  </main>
+);
 }
