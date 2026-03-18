@@ -827,24 +827,6 @@ async function handleSaveDraft() {
                   const firstService = participant.participant_services?.find((s) => s.active);
                   if (firstService) setService(firstService.service_name);
 
-                  if (hasDraft) return;
-
-                  const { data, error } = await supabase
-                    .from("service_notes")
-                    .insert([
-                      {
-                        worker_id: worker.id,
-                        participant_id: participant.id,
-                        shift_date: getTodayDate(),
-                        time_in: getCurrentTime(),
-                        time_out: getCurrentTime(),
-                        location: "community",
-                        status: "draft",
-                      },
-                    ])
-                    .select()
-                    .single();
-
                   if (data) {
                     setCurrentNoteId(data.id);
                     setHasDraft(true);
