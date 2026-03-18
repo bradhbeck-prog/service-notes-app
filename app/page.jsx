@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../lib/supabase";
 
@@ -605,6 +605,9 @@ async function handleSubmitNote() {
                 }}
               />
             </div>
+          </div>
+        )}
+        
 <div style={{ marginTop: 15, display: "flex", gap: 10 }}>
   <button
     onClick={handleSubmitNote}
@@ -657,24 +660,10 @@ async function handleSubmitNote() {
     Back
   </button>
 </div>
-          <button
-            onClick={() => {
-              setSelectedParticipant(null);
-              setNoteText("");
-              setMessage("");
-            }}
-            style={{
-              padding: "10px 18px",
-              fontSize: 16,
-              cursor: "pointer",
-            }}
-          >
-            Back
-          </button>
-        </div>
 
-        <p style={{ marginTop: 10 }}>{message}</p>
-  <div
+<p style={{ marginTop: 10 }}>{message}</p>
+
+<div
   style={{
     width: "100%",
     maxWidth: 500,
@@ -690,18 +679,99 @@ async function handleSubmitNote() {
   <a href="mailto:bradley@supportsbroker.com">
     bradley@supportsbroker.com
   </a>
-</div>   
-</main>
+</div>  
+
+      </main>
     );
   }
-if (worker && loadingDraft) {
-  return (
-    <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
-      <h1>DreamNote</h1>
-      <p>Loading saved note...</p>
-    </main>
-  );
-}
+
+  async function handleSaveDraft() {
+    if (!currentNoteId) {
+      setMessage("No draft to save.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const participantObject =
+      typeof selectedParticipant === "object"
+        ? selectedParticipant
+        : participants.find((p) => p.id === selectedParticipant);
+
+    const { error } = await supabase
+      .from("service_notes")
+      .update({
+        participant_id: participantObject?.id || selectedParticipant,
+        note_text: noteText,
+        shift_date: shiftDate,
+        time_in: timeIn,
+        time_out: timeOut,
+        location,
+        service,
+        goals: selectedGoals,
+        signature_mode: signatureMode,
+typed_signature: signatureMode === "typed" ? typedSignature : null,
+drawn_signature: signatureMode === "draw" ? drawnSignature : null,
+        status: "draft",
+      })
+      .eq("id", currentNoteId);
+
+    setSaving(false);
+
+    if (error) {
+      setMessage("Could not save draft.");
+      return;
+    }
+
+    setMessage("Draft saved.");
+  }
+
+  async function handleDeleteDraft() {
+    if (!currentNoteId) {
+      setMessage("No draft to delete.");
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+
+    const { error } = await supabase
+      .from("service_notes")
+      .delete()
+      .eq("id", currentNoteId);
+
+    setSaving(false);
+
+    if (error) {
+      setMessage("Could not delete draft.");
+      return;
+    }
+
+    setCurrentNoteId(null);
+    setHasDraft(false);
+    setSelectedParticipant(null);
+    setNoteText("");
+    setShiftDate(getTodayDate());
+    setTimeIn(getCurrentTime());
+    setTimeOut(getCurrentTime());
+    setLocation("community");
+    setService("");
+    setSelectedGoals([]);
+    setTypedSignature("");
+    setDrawnSignature("");
+    setMessage("Draft deleted.");
+  }
+
+  if (worker && loadingDraft) {
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
+        <h1>DreamNote</h1>
+        <p>Loading saved note...</p>
+      </main>
+    );
+  }
+
   if (worker) {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
@@ -716,36 +786,35 @@ if (worker && loadingDraft) {
             {participants.map((participant) => (
               <button
                 key={participant.id}
-onClick={async () => {
-  setSelectedParticipant(participant);
+                onClick={async () => {
+                  setSelectedParticipant(participant);
 
-  const firstService = participant.participant_services?.find((s) => s.active);
-  if (firstService) setService(firstService.service_name);
+                  const firstService = participant.participant_services?.find((s) => s.active);
+                  if (firstService) setService(firstService.service_name);
 
-  // create draft if one doesn't exist
-  if (hasDraft) return;
+                  if (hasDraft) return;
 
-  const { data, error } = await supabase
-    .from("service_notes")
-    .insert([
-      {
-        worker_id: worker.id,
-        participant_id: participant.id,
-        shift_date: getTodayDate(),
-        time_in: getCurrentTime(),
-        time_out: getCurrentTime(),
-        location: "community",
-        status: "draft",
-      },
-    ])
-    .select()
-    .single();
+                  const { data, error } = await supabase
+                    .from("service_notes")
+                    .insert([
+                      {
+                        worker_id: worker.id,
+                        participant_id: participant.id,
+                        shift_date: getTodayDate(),
+                        time_in: getCurrentTime(),
+                        time_out: getCurrentTime(),
+                        location: "community",
+                        status: "draft",
+                      },
+                    ])
+                    .select()
+                    .single();
 
-  if (data) {
-    setCurrentNoteId(data.id);
-    setHasDraft(true);
-  }
-}}
+                  if (data) {
+                    setCurrentNoteId(data.id);
+                    setHasDraft(true);
+                  }
+                }}
                 style={{
                   padding: 12,
                   fontSize: 16,
@@ -758,131 +827,53 @@ onClick={async () => {
             ))}
           </div>
         )}
-    
-</main>
+      </main>
     );
   }
-async function handleSaveDraft() {
-  if (!currentNoteId) {
-    setMessage("No draft to save.");
-    return;
-  }
 
-  setSaving(true);
-  setMessage("");
+  return (
+    <main
+      style={{
+        padding: 30,
+        fontFamily: "Arial",
+        maxWidth: 500,
+        margin: "0 auto",
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <div style={{ flex: 1 }}>
+        <h1>DreamNote</h1>
 
-  const participantObject =
-    typeof selectedParticipant === "object"
-      ? selectedParticipant
-      : participants.find((p) => p.id === selectedParticipant);
+        <input
+          type="password"
+          placeholder="Enter support service professional PIN"
+          value={pin}
+          onChange={(e) => setPin(e.target.value)}
+          style={{
+            width: "100%",
+            padding: 12,
+            fontSize: 16,
+            marginTop: 10,
+            marginBottom: 12,
+            boxSizing: "border-box",
+          }}
+        />
 
-  const { error } = await supabase
-    .from("service_notes")
-    .update({
-      participant_id: participantObject?.id || selectedParticipant,
-      note_text: noteText,
-      shift_date: shiftDate,
-      time_in: timeIn,
-      time_out: timeOut,
-      location,
-      service,
-      goals: selectedGoals,
-      signature_mode: signatureMode,
-      typed_signature: signatureMode === "typed" ? typedSignature : null,
-      drawn_signature: signatureMode === "drawn" ? drawnSignature : null,
-      status: "draft",
-    })
-    .eq("id", currentNoteId);
+        <button
+          onClick={handleLogin}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+          }}
+        >
+          Sign in
+        </button>
 
-  setSaving(false);
-
-  if (error) {
-    setMessage("Could not save draft.");
-    return;
-  }
-
-  setMessage("Draft saved.");
-}
-
-async function handleDeleteDraft() {
-  if (!currentNoteId) {
-    setMessage("No draft to delete.");
-    return;
-  }
-
-  setSaving(true);
-  setMessage("");
-
-  const { error } = await supabase
-    .from("service_notes")
-    .delete()
-    .eq("id", currentNoteId);
-
-  setSaving(false);
-
-  if (error) {
-    setMessage("Could not delete draft.");
-    return;
-  }
-
-  setCurrentNoteId(null);
-  setHasDraft(false);
-  setSelectedParticipant(null);
-  setNoteText("");
-  setShiftDate(getTodayDate());
-  setTimeIn(getCurrentTime());
-  setTimeOut(getCurrentTime());
-  setLocation("community");
-  setService("");
-  setSelectedGoals([]);
-  setTypedSignature("");
-  setDrawnSignature("");
-  setMessage("Draft deleted.");
-}
-
-return (
-  <main
-    style={{
-      padding: 30,
-      fontFamily: "Arial",
-      maxWidth: 500,
-      margin: "0 auto",
-      minHeight: "100vh",
-      display: "flex",
-      flexDirection: "column",
-    }}
-  >
-    <div style={{ flex: 1 }}>
-      <h1>DreamNote</h1>
-
-      <input
-        type="password"
-        placeholder="Enter support service professional PIN"
-        value={pin}
-        onChange={(e) => setPin(e.target.value)}
-        style={{
-          width: "100%",
-          padding: 12,
-          fontSize: 16,
-          marginTop: 10,
-          marginBottom: 12,
-          boxSizing: "border-box",
-        }}
-      />
-
-      <button
-        onClick={handleLogin}
-        style={{
-          padding: "10px 18px",
-          fontSize: 16,
-          cursor: "pointer",
-        }}
-      >
-        Sign in
-      </button>
-
-      <p>{message}</p>
-    </div>
-  </main>
-);
+        <p>{message}</p>
+      </div>
+    </main>
+  );
 }
