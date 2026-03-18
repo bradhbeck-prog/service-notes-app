@@ -51,7 +51,7 @@ useEffect(() => {
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(1)
-      .single();
+.maybeSingle();
 
     if (data) {
       setHasDraft(true);
@@ -709,52 +709,50 @@ async function handleSaveDraft() {
 
   let noteId = currentNoteId;
 
-  if (!noteId) {
-    const { data: newDraft, error: insertError } = await supabase
-      .from("service_notes")
-      .insert([
-        {
-          worker_id: worker.id,
-          participant_id: participantId,
-          shift_date: shiftDate,
-          time_in: timeIn,
-          time_out: timeOut,
-          location,
-          service,
-          status: "draft",
-        },
-      ])
-      .select()
-      .single();
+  const payload = {
+    worker_id: worker.id,
+    participant_id: participantId,
+    shift_date: shiftDate,
+    time_in: timeIn,
+    time_out: timeOut,
+    location,
+    service,
+    narrative: noteText.trim(),
+    goals: selectedGoals,
+    worker_signature_mode: signatureMode,
+    worker_typed_signature: signatureMode === "typed" ? typedSignature : null,
+    worker_signature_font: signatureFont,
+    worker_signature_date: shiftDate,
+    status: "draft",
+  };
 
-    if (insertError || !newDraft) {
-      console.error("Create draft error:", insertError);
+  if (!noteId) {
+    const { data, error } = await supabase
+      .from("service_notes")
+      .insert([payload])
+      .select()
+      .maybeSingle();
+
+    if (error) {
+      console.error("Create draft error:", error);
       setSaving(false);
-      setMessage(insertError?.message || "Could not create draft.");
+      setMessage(error.message);
       return;
     }
 
-    noteId = newDraft.id;
-    setCurrentNoteId(newDraft.id);
+    noteId = data.id;
+    setCurrentNoteId(data.id);
     setHasDraft(true);
   } else {
-    const { error: updateError } = await supabase
+    const { error } = await supabase
       .from("service_notes")
-      .update({
-        participant_id: participantId,
-        shift_date: shiftDate,
-        time_in: timeIn,
-        time_out: timeOut,
-        location,
-        service,
-        status: "draft",
-      })
+      .update(payload)
       .eq("id", noteId);
 
-    if (updateError) {
-      console.error("Update draft error:", updateError);
+    if (error) {
+      console.error("Update draft error:", error);
       setSaving(false);
-      setMessage(updateError?.message || "Could not save draft.");
+      setMessage(error.message);
       return;
     }
   }
