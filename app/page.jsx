@@ -726,7 +726,6 @@ async function handleSaveDraft() {
           goals: selectedGoals,
           signature_mode: signatureMode,
           typed_signature: signatureMode === "typed" ? typedSignature : null,
-          drawn_signature: signatureMode === "draw" ? drawnSignature : null,
           status: "draft",
         },
       ])
@@ -757,7 +756,6 @@ async function handleSaveDraft() {
         goals: selectedGoals,
         signature_mode: signatureMode,
         typed_signature: signatureMode === "typed" ? typedSignature : null,
-        drawn_signature: signatureMode === "draw" ? drawnSignature : null,
         status: "draft",
       })
       .eq("id", noteId);
