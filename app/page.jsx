@@ -63,7 +63,6 @@ const matchingParticipant = participants.find(
 );
 
 setSelectedParticipant(matchingParticipant || data.participant_id);
-      setNoteText(data.note_text || "");
       setShiftDate(data.shift_date || getTodayDate());
       setTimeIn(data.time_in || getCurrentTime());
       setTimeOut(data.time_out || getCurrentTime());
@@ -717,7 +716,6 @@ async function handleSaveDraft() {
         {
           worker_id: worker.id,
           participant_id: participantId,
-          note_text: noteText,
           shift_date: shiftDate,
           time_in: timeIn,
           time_out: timeOut,
@@ -747,7 +745,6 @@ async function handleSaveDraft() {
       .from("service_notes")
       .update({
         participant_id: participantId,
-        note_text: noteText,
         shift_date: shiftDate,
         time_in: timeIn,
         time_out: timeOut,
