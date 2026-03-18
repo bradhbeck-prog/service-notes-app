@@ -702,6 +702,12 @@ async function handleSaveDraft() {
     return;
   }
 
+  if (!worker?.id) {
+    setSaving(false);
+    setMessage("Worker not found.");
+    return;
+  }
+
   let noteId = currentNoteId;
 
   if (!noteId) {
@@ -711,11 +717,16 @@ async function handleSaveDraft() {
         {
           worker_id: worker.id,
           participant_id: participantId,
+          note_text: noteText,
           shift_date: shiftDate,
           time_in: timeIn,
           time_out: timeOut,
           location,
           service,
+          goals: selectedGoals,
+          signature_mode: signatureMode,
+          typed_signature: signatureMode === "typed" ? typedSignature : null,
+          drawn_signature: signatureMode === "draw" ? drawnSignature : null,
           status: "draft",
         },
       ])
@@ -723,41 +734,43 @@ async function handleSaveDraft() {
       .single();
 
     if (insertError || !newDraft) {
+      console.error("Create draft error:", insertError);
       setSaving(false);
-      setMessage("Could not create draft.");
+      setMessage(insertError?.message || "Could not create draft.");
       return;
     }
 
     noteId = newDraft.id;
     setCurrentNoteId(newDraft.id);
     setHasDraft(true);
-  }
+  } else {
+    const { error: updateError } = await supabase
+      .from("service_notes")
+      .update({
+        participant_id: participantId,
+        note_text: noteText,
+        shift_date: shiftDate,
+        time_in: timeIn,
+        time_out: timeOut,
+        location,
+        service,
+        goals: selectedGoals,
+        signature_mode: signatureMode,
+        typed_signature: signatureMode === "typed" ? typedSignature : null,
+        drawn_signature: signatureMode === "draw" ? drawnSignature : null,
+        status: "draft",
+      })
+      .eq("id", noteId);
 
-  const { error } = await supabase
-    .from("service_notes")
-    .update({
-      participant_id: participantId,
-      note_text: noteText,
-      shift_date: shiftDate,
-      time_in: timeIn,
-      time_out: timeOut,
-      location,
-      service,
-      goals: selectedGoals,
-      signature_mode: signatureMode,
-      typed_signature: signatureMode === "typed" ? typedSignature : null,
-      drawn_signature: signatureMode === "draw" ? drawnSignature : null,
-      status: "draft",
-    })
-    .eq("id", noteId);
+    if (updateError) {
+      console.error("Update draft error:", updateError);
+      setSaving(false);
+      setMessage(updateError?.message || "Could not save draft.");
+      return;
+    }
+  }
 
   setSaving(false);
-
-  if (error) {
-    setMessage("Could not save draft.");
-    return;
-  }
-
   setMessage("Draft saved.");
 }
 
