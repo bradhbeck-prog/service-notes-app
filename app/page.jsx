@@ -67,8 +67,9 @@ setSelectedParticipant(matchingParticipant || data.participant_id);
       setTimeIn(data.time_in || getCurrentTime());
       setTimeOut(data.time_out || getCurrentTime());
       setLocation(data.location || "community");
-      setService(data.service || "");
-      setSelectedGoals(data.goals || []);
+setService(data.service || "");
+setNoteText(data.narrative || "");
+setSelectedGoals(data.goals || []);
     }
 
     setLoadingDraft(false);
