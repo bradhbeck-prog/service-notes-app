@@ -185,8 +185,8 @@ async function handleSubmitNote() {
     const { data: noteInsert, error } = await supabase
       .from("service_notes")
       .insert([insertPayload])
-      .select()
-      .single();
+.select()
+.maybeSingle();
 
     if (error) {
       console.log("SUPABASE ERROR:", error);
