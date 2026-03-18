@@ -721,7 +721,6 @@ async function handleSaveDraft() {
           time_out: timeOut,
           location,
           service,
-          typed_signature: signatureMode === "typed" ? typedSignature : null,
           status: "draft",
         },
       ])
@@ -748,7 +747,6 @@ async function handleSaveDraft() {
         time_out: timeOut,
         location,
         service,
-        typed_signature: signatureMode === "typed" ? typedSignature : null,
         status: "draft",
       })
       .eq("id", noteId);
