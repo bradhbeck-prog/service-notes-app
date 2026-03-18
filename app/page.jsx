@@ -685,47 +685,81 @@ async function handleSubmitNote() {
     );
   }
 
-  async function handleSaveDraft() {
-    if (!currentNoteId) {
-      setMessage("No draft to save.");
-      return;
-    }
+async function handleSaveDraft() {
+  setSaving(true);
+  setMessage("");
 
-    setSaving(true);
-    setMessage("");
+  const participantObject =
+    typeof selectedParticipant === "object"
+      ? selectedParticipant
+      : participants.find((p) => p.id === selectedParticipant);
 
-    const participantObject =
-      typeof selectedParticipant === "object"
-        ? selectedParticipant
-        : participants.find((p) => p.id === selectedParticipant);
+  const participantId = participantObject?.id || selectedParticipant;
 
-    const { error } = await supabase
-      .from("service_notes")
-      .update({
-        participant_id: participantObject?.id || selectedParticipant,
-        note_text: noteText,
-        shift_date: shiftDate,
-        time_in: timeIn,
-        time_out: timeOut,
-        location,
-        service,
-        goals: selectedGoals,
-        signature_mode: signatureMode,
-typed_signature: signatureMode === "typed" ? typedSignature : null,
-drawn_signature: signatureMode === "draw" ? drawnSignature : null,
-        status: "draft",
-      })
-      .eq("id", currentNoteId);
-
+  if (!participantId) {
     setSaving(false);
+    setMessage("No participant selected.");
+    return;
+  }
 
-    if (error) {
-      setMessage("Could not save draft.");
+  let noteId = currentNoteId;
+
+  if (!noteId) {
+    const { data: newDraft, error: insertError } = await supabase
+      .from("service_notes")
+      .insert([
+        {
+          worker_id: worker.id,
+          participant_id: participantId,
+          shift_date: shiftDate,
+          time_in: timeIn,
+          time_out: timeOut,
+          location,
+          service,
+          status: "draft",
+        },
+      ])
+      .select()
+      .single();
+
+    if (insertError || !newDraft) {
+      setSaving(false);
+      setMessage("Could not create draft.");
       return;
     }
 
-    setMessage("Draft saved.");
+    noteId = newDraft.id;
+    setCurrentNoteId(newDraft.id);
+    setHasDraft(true);
   }
+
+  const { error } = await supabase
+    .from("service_notes")
+    .update({
+      participant_id: participantId,
+      note_text: noteText,
+      shift_date: shiftDate,
+      time_in: timeIn,
+      time_out: timeOut,
+      location,
+      service,
+      goals: selectedGoals,
+      signature_mode: signatureMode,
+      typed_signature: signatureMode === "typed" ? typedSignature : null,
+      drawn_signature: signatureMode === "draw" ? drawnSignature : null,
+      status: "draft",
+    })
+    .eq("id", noteId);
+
+  setSaving(false);
+
+  if (error) {
+    setMessage("Could not save draft.");
+    return;
+  }
+
+  setMessage("Draft saved.");
+}
 
   async function handleDeleteDraft() {
     if (!currentNoteId) {
