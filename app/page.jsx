@@ -827,10 +827,6 @@ async function handleSaveDraft() {
                   const firstService = participant.participant_services?.find((s) => s.active);
                   if (firstService) setService(firstService.service_name);
 
-                  if (data) {
-                    setCurrentNoteId(data.id);
-                    setHasDraft(true);
-                  }
                 }}
                 style={{
                   padding: 12,
