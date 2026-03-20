@@ -418,36 +418,39 @@ const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
     loadData();
   }
 
-  async function handleAddGoal() {
-    setMessage("");
+async function handleAddGoal() {
+  setMessage("");
 
-    if (!goalParticipantId || !goalLabel.trim()) {
-      setMessage("Select a participant and enter a goal.");
-      return;
-    }
-
-    const { error } = await supabase.from("participant_goals").insert([
-      {
-        participant_id: goalParticipantId,
-        category_name: goalCategoryName.trim() || "Goals",
-        goal_label: goalLabel.trim(),
-        sort_order: Number(goalSortOrder) || 1,
-        active: true,
-      },
-    ]);
-
-    if (error) {
-      setMessage(`Error adding goal: ${error.message}`);
-      return;
-    }
-
-    setGoalParticipantId("");
-    setGoalCategoryName("");
-    setGoalLabel("");
-    setGoalSortOrder("1");
-    setMessage("Goal added.");
-    loadData();
+  if (!goalParticipantId || !goalLabel.trim()) {
+    setMessage("Select a participant and enter a goal.");
+    return;
   }
+
+  const categoryToUse = goalCategoryName.trim() || "Goals";
+
+  const { error } = await supabase.from("participant_goals").insert([
+    {
+      participant_id: goalParticipantId,
+      category_name: categoryToUse,
+      goal_label: goalLabel.trim(),
+      sort_order: Number(goalSortOrder) || 1,
+      active: true,
+    },
+  ]);
+
+  if (error) {
+    setMessage(`Error adding goal: ${error.message}`);
+    return;
+  }
+
+  // keep participant selected
+  // keep category name in place
+  setGoalCategoryName(categoryToUse);
+  setGoalLabel("");
+  setGoalSortOrder("1");
+  setMessage(`Goal added. Last category used: ${categoryToUse}`);
+  loadData();
+}
 
 async function handleDeleteGoal(goalId) {
   setMessage("");
@@ -934,46 +937,68 @@ async function handleUpdateGoal() {
       </section>
 
       <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
-        <h2>Add Goal</h2>
-        <div style={{ display: "grid", gap: 10, maxWidth: 500 }}>
-          <select
-            value={goalParticipantId}
-            onChange={(e) => setGoalParticipantId(e.target.value)}
-            style={{ padding: 10, fontSize: 16 }}
-          >
-            <option value="">Select participant</option>
-            {participants.map((participant) => (
-              <option key={participant.id} value={participant.id}>
-                {participant.name}
-              </option>
-            ))}
-          </select>
+<h2>Add Goal</h2>
+<div style={{ display: "grid", gap: 10, maxWidth: 500 }}>
+  <select
+    value={goalParticipantId}
+    onChange={(e) => {
+      const selectedId = e.target.value;
+      setGoalParticipantId(selectedId);
 
-          <input
-            placeholder="Category name"
-            value={goalCategoryName}
-            onChange={(e) => setGoalCategoryName(e.target.value)}
-            style={{ padding: 10, fontSize: 16 }}
-          />
+      if (!selectedId) return;
 
-          <input
-            placeholder="Goal label"
-            value={goalLabel}
-            onChange={(e) => setGoalLabel(e.target.value)}
-            style={{ padding: 10, fontSize: 16 }}
-          />
+      const participantGoals = goals.filter(
+        (goal) => String(goal.participant_id) === String(selectedId)
+      );
 
-          <input
-            placeholder="Sort order"
-            value={goalSortOrder}
-            onChange={(e) => setGoalSortOrder(e.target.value)}
-            style={{ padding: 10, fontSize: 16 }}
-          />
+      if (participantGoals.length > 0) {
+        const lastGoal = participantGoals[participantGoals.length - 1];
+        setGoalCategoryName(lastGoal.category_name || "");
+      } else {
+        setGoalCategoryName("");
+      }
+    }}
+    style={{ padding: 10, fontSize: 16 }}
+  >
+    <option value="">Select participant</option>
+    {participants.map((participant) => (
+      <option key={participant.id} value={participant.id}>
+        {participant.name}
+      </option>
+    ))}
+  </select>
 
-          <button onClick={handleAddGoal} style={{ padding: 10, fontSize: 16 }}>
-            Add Goal
-          </button>
-        </div>
+  {goalParticipantId && goalCategoryName && (
+    <div style={{ fontSize: 14, color: "#666" }}>
+      Last category used: <strong>{goalCategoryName}</strong>
+    </div>
+  )}
+
+  <input
+    placeholder="Category name"
+    value={goalCategoryName}
+    onChange={(e) => setGoalCategoryName(e.target.value)}
+    style={{ padding: 10, fontSize: 16 }}
+  />
+
+  <input
+    placeholder="Goal label"
+    value={goalLabel}
+    onChange={(e) => setGoalLabel(e.target.value)}
+    style={{ padding: 10, fontSize: 16 }}
+  />
+
+  <input
+    placeholder="Sort order"
+    value={goalSortOrder}
+    onChange={(e) => setGoalSortOrder(e.target.value)}
+    style={{ padding: 10, fontSize: 16 }}
+  />
+
+  <button onClick={handleAddGoal} style={{ padding: 10, fontSize: 16 }}>
+    Add Goal
+  </button>
+</div>
       </section>
 {editingGoalId && (
   <section style={{ marginTop: 12, padding: 12, border: "1px solid #ccc", borderRadius: 8 }}>
