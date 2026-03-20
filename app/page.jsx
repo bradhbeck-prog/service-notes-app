@@ -285,7 +285,16 @@ async function handleSubmitNote() {
 
   if (selectedParticipant) {
     return (
-      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
+<main
+  style={{
+    minHeight: "100vh",
+    background: "var(--dn-bg)",
+    padding: 30,
+    fontFamily: "Arial",
+    maxWidth: 700,
+    margin: "0 auto",
+  }}
+>
         <h1>DreamNote</h1>
 
         <p>Support Service Professional: {worker.name}</p>

@@ -1,0 +1,17 @@
+:root {
+  --dn-bg: #f7fbfa;
+  --dn-surface: #ffffff;
+  --dn-border: #dceae7;
+  --dn-text: #1f2937;
+  --dn-primary: #189f8e;
+  --dn-accent: #fde153;
+}
+
+html,
+body {
+  background: var(--dn-bg);
+  color: var(--dn-text);
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+}
