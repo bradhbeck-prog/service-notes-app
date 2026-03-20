@@ -295,66 +295,146 @@ async function handleSubmitNote() {
     margin: "0 auto",
   }}
 >
-        <h1>DreamNote</h1>
+<div
+  style={{
+    marginBottom: 20,
+    padding: "18px 20px",
+    background: "#ffffff",
+    border: "1px solid var(--dn-border)",
+    borderRadius: 16,
+  }}
+>
+  <h1 style={{ margin: 0, color: "var(--dn-primary)" }}>DreamNote</h1>
+</div>
 
         <p>Support Service Professional: {worker.name}</p>
         <p>Person Receiving Services: {selectedParticipant.name}</p>
 
-        <div style={{ display: "grid", gap: 12, marginTop: 20, maxWidth: 420 }}>
+<div
+  style={{
+    display: "grid",
+    gap: 16,
+    marginTop: 20,
+    maxWidth: 420,
+    background: "#ffffff",
+    padding: 20,
+    borderRadius: 16,
+    border: "1px solid var(--dn-border)",
+  }}
+>
           <div>
-            <label style={{ display: "block", marginBottom: 6 }}>Shift Date</label>
+           <label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>Shift Date</label>
             <input
               type="date"
               value={shiftDate}
               onChange={(e) => setShiftDate(e.target.value)}
-              style={{ width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+style={{
+  width: "100%",
+  padding: 10,
+  fontSize: 16,
+  boxSizing: "border-box",
+  borderRadius: 10,
+  border: "1px solid var(--dn-border)",
+  background: "#f2faf8",
+}}
             />
-          </div>
+<div>
+<label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>Time In</label>
+
+  <div style={{ display: "flex", gap: 8 }}>
+    <input
+      type="time"
+      value={timeIn}
+      onChange={(e) => setTimeIn(e.target.value)}
+      style={{
+        flex: 1,
+        padding: 10,
+        fontSize: 16,
+        boxSizing: "border-box",
+        borderRadius: 10,
+        border: "1px solid var(--dn-border)",
+        background: "#f2faf8",
+      }}
+    />
+
+    <button
+      type="button"
+      onClick={() => setTimeIn(getCurrentTime())}
+      style={{
+        padding: "10px 12px",
+        fontSize: 14,
+        cursor: "pointer",
+        borderRadius: 10,
+        border: "1px solid var(--dn-border)",
+        background: "#ffffff",
+      }}
+    >
+      Now
+    </button>
+  </div>
+</div>
+
+<div>
+<label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>Time Out</label>
+
+  <div style={{ display: "flex", gap: 8 }}>
+    <input
+      type="time"
+      value={timeOut}
+      onChange={(e) => setTimeOut(e.target.value)}
+      style={{
+        flex: 1,
+        padding: 10,
+        fontSize: 16,
+        boxSizing: "border-box",
+        borderRadius: 10,
+        border: "1px solid var(--dn-border)",
+        background: "#f2faf8",
+      }}
+    />
+  </div>
+</div>
 
           <div>
-            <label style={{ display: "block", marginBottom: 6 }}>Time In</label>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="time"
-                value={timeIn}
-                onChange={(e) => setTimeIn(e.target.value)}
-                style={{ flex: 1, padding: 10, fontSize: 16, boxSizing: "border-box" }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setTimeIn(getCurrentTime())}
-                style={{ padding: "10px 12px", fontSize: 14, cursor: "pointer" }}
-              >
-                Now
-              </button>
-            </div>
-          </div>
+<label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>Service</label>
 
           <div>
-            <label style={{ display: "block", marginBottom: 6 }}>Time Out</label>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="time"
-                value={timeOut}
-                onChange={(e) => setTimeOut(e.target.value)}
-                style={{ flex: 1, padding: 10, fontSize: 16, boxSizing: "border-box" }}
-              />
-
-              <button
-                type="button"
-                onClick={() => setTimeOut(getCurrentTime())}
-                style={{ padding: "10px 12px", fontSize: 14, cursor: "pointer" }}
-              >
-                Now
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label style={{ display: "block", marginBottom: 6 }}>Service</label>
+<label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>Service</label>
 
             <select
               value={service}
@@ -373,11 +453,25 @@ async function handleSubmitNote() {
         </div>
 
         <div style={{ marginTop: 15 }}>
-          <label style={{ display: "block", marginBottom: 6 }}>
+      <label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>
             Location of Services Provided
           </label>
 
-          <label style={{ display: "block", marginBottom: 6 }}>
+ <label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>
             <input
               type="radio"
               name="location"
@@ -490,9 +584,23 @@ async function handleSubmitNote() {
         />
 
         <div style={{ marginTop: 20 }}>
-          <label style={{ display: "block", marginBottom: 6 }}>Signature Type</label>
+        <label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>Signature Type</label>
 
-          <label style={{ display: "block", marginBottom: 6 }}>
+        <label
+  style={{
+    display: "block",
+    marginBottom: 6,
+    fontWeight: 600,
+    color: "var(--dn-text)",
+  }}
+>
             <input
               type="radio"
               name="signatureMode"
@@ -616,7 +724,7 @@ async function handleSubmitNote() {
             </div>
           </div>
         )}
-        
+    </div>    
 <div style={{ marginTop: 15, display: "flex", gap: 10 }}>
   <button
     onClick={handleSubmitNote}
@@ -625,11 +733,16 @@ async function handleSubmitNote() {
       padding: "10px 18px",
       fontSize: 16,
       cursor: "pointer",
+      borderRadius: 10,
+      border: "none",
+      background: "var(--dn-primary)",
+      color: "#ffffff",
+      fontWeight: 600,
     }}
   >
     {saving ? "Saving..." : "Submit Note"}
   </button>
-
+</div>
   <button
     onClick={handleSaveDraft}
     disabled={saving}
@@ -637,6 +750,11 @@ async function handleSubmitNote() {
       padding: "10px 18px",
       fontSize: 16,
       cursor: "pointer",
+      borderRadius: 10,
+      border: "1px solid var(--dn-border)",
+      background: "#ffffff",
+      color: "var(--dn-primary)",
+      fontWeight: 600,
     }}
   >
     {saving ? "Saving..." : "Save Draft"}
@@ -649,6 +767,11 @@ async function handleSubmitNote() {
       padding: "10px 18px",
       fontSize: 16,
       cursor: "pointer",
+      borderRadius: 10,
+      border: "1px solid var(--dn-border)",
+      background: "#ffffff",
+      color: "var(--dn-primary)",
+      fontWeight: 600,
     }}
   >
     Delete Draft
@@ -664,6 +787,11 @@ async function handleSubmitNote() {
       padding: "10px 18px",
       fontSize: 16,
       cursor: "pointer",
+      borderRadius: 10,
+      border: "1px solid var(--dn-border)",
+      background: "#ffffff",
+      color: "var(--dn-primary)",
+      fontWeight: 600,
     }}
   >
     Back
@@ -684,16 +812,15 @@ async function handleSubmitNote() {
     textAlign: "center",
   }}
 >
-  DreamNote Beta by Brad Beck - Please send feedback to{" "}
+  DreamNote Beta by Brad Beck. Please send feedback to{" "}
   <a href="mailto:bradley@supportsbroker.com">
     bradley@supportsbroker.com
   </a>
-</div>  
+</div>
 
-      </main>
+</main>
     );
   }
-
 async function handleSaveDraft() {
   setSaving(true);
   setMessage("");
