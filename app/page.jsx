@@ -283,195 +283,202 @@ async function handleSubmitNote() {
     setTimeOut(getCurrentTime());
   }
 
-  if (selectedParticipant) {
-    return (
-<main
-  style={{
-    minHeight: "100vh",
-    background: "var(--dn-bg)",
-    padding: 30,
-    fontFamily: "Arial",
-    maxWidth: 700,
-    margin: "0 auto",
-  }}
->
-<div
-  style={{
-    marginBottom: 20,
-    padding: "18px 20px",
-    background: "#ffffff",
-    border: "1px solid var(--dn-border)",
-    borderRadius: 16,
-  }}
->
-  <h1 style={{ margin: 0, color: "var(--dn-primary)" }}>DreamNote</h1>
-</div>
-
-        <p>Support Service Professional: {worker.name}</p>
-        <p>Person Receiving Services: {selectedParticipant.name}</p>
-
-<div
-  style={{
-    display: "grid",
-    gap: 16,
-    marginTop: 20,
-    maxWidth: 420,
-    background: "#ffffff",
-    padding: 20,
-    borderRadius: 16,
-    border: "1px solid var(--dn-border)",
-  }}
->
-          <div>
-           <label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->Shift Date</label>
-            <input
-              type="date"
-              value={shiftDate}
-              onChange={(e) => setShiftDate(e.target.value)}
-style={{
-  width: "100%",
-  padding: 10,
-  fontSize: 16,
-  boxSizing: "border-box",
-  borderRadius: 10,
-  border: "1px solid var(--dn-border)",
-  background: "#f2faf8",
-}}
-            />
-<div>
-<label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->Time In</label>
-
-  <div style={{ display: "flex", gap: 8 }}>
-    <input
-      type="time"
-      value={timeIn}
-      onChange={(e) => setTimeIn(e.target.value)}
+if (selectedParticipant) {
+  return (
+    <main
       style={{
-        flex: 1,
-        padding: 10,
-        fontSize: 16,
-        boxSizing: "border-box",
-        borderRadius: 10,
-        border: "1px solid var(--dn-border)",
-        background: "#f2faf8",
-      }}
-    />
-
-    <button
-      type="button"
-      onClick={() => setTimeIn(getCurrentTime())}
-      style={{
-        padding: "10px 12px",
-        fontSize: 14,
-        cursor: "pointer",
-        borderRadius: 10,
-        border: "1px solid var(--dn-border)",
-        background: "#ffffff",
+        minHeight: "100vh",
+        background: "var(--dn-bg)",
+        padding: 30,
+        fontFamily: "Arial",
+        maxWidth: 700,
+        margin: "0 auto",
       }}
     >
-      Now
-    </button>
-  </div>
-</div>
+      <div
+        style={{
+          marginBottom: 20,
+          padding: "18px 20px",
+          background: "#ffffff",
+          border: "1px solid var(--dn-border)",
+          borderRadius: 16,
+        }}
+      >
+        <h1 style={{ margin: 0, color: "var(--dn-primary)" }}>DreamNote</h1>
+      </div>
 
-<div>
-<label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->Time Out</label>
+      <p>Support Service Professional: {worker.name}</p>
+      <p>Person Receiving Services: {selectedParticipant.name}</p>
 
-  <div style={{ display: "flex", gap: 8 }}>
-    <input
-      type="time"
-      value={timeOut}
-      onChange={(e) => setTimeOut(e.target.value)}
-      style={{
-        flex: 1,
-        padding: 10,
-        fontSize: 16,
-        boxSizing: "border-box",
-        borderRadius: 10,
-        border: "1px solid var(--dn-border)",
-        background: "#f2faf8",
-      }}
-    />
-  </div>
-</div>
+      <div
+        style={{
+          display: "grid",
+          gap: 16,
+          marginTop: 20,
+          maxWidth: 420,
+          background: "#ffffff",
+          padding: 20,
+          borderRadius: 16,
+          border: "1px solid var(--dn-border)",
+        }}
+      >
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
+            Shift Date
+          </label>
+          <input
+            type="date"
+            value={shiftDate}
+            onChange={(e) => setShiftDate(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 10,
+              fontSize: 16,
+              boxSizing: "border-box",
+              borderRadius: 10,
+              border: "1px solid var(--dn-border)",
+              background: "#f2faf8",
+            }}
+          />
+        </div>
 
-          <div>
-<label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->Service</label>
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
+            Time In
+          </label>
 
-          <div>
-<label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->Service</label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="time"
+              value={timeIn}
+              onChange={(e) => setTimeIn(e.target.value)}
+              style={{
+                flex: 1,
+                padding: 10,
+                fontSize: 16,
+                boxSizing: "border-box",
+                borderRadius: 10,
+                border: "1px solid var(--dn-border)",
+                background: "#f2faf8",
+              }}
+            />
 
-            <select
-              value={service}
-              onChange={(e) => setService(e.target.value)}
-              style={{ width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+            <button
+              type="button"
+              onClick={() => setTimeIn(getCurrentTime())}
+              style={{
+                padding: "10px 12px",
+                fontSize: 14,
+                cursor: "pointer",
+                borderRadius: 10,
+                border: "1px solid var(--dn-border)",
+                background: "#ffffff",
+              }}
             >
-              {selectedParticipant.participant_services
-                ?.filter((s) => s.active)
-                .map((s) => (
-                  <option key={s.id} value={s.service_name}>
-                    {s.service_name}
-                  </option>
-                ))}
-            </select>
+              Now
+            </button>
           </div>
         </div>
 
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
+            Time Out
+          </label>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <input
+              type="time"
+              value={timeOut}
+              onChange={(e) => setTimeOut(e.target.value)}
+              style={{
+                flex: 1,
+                padding: 10,
+                fontSize: 16,
+                boxSizing: "border-box",
+                borderRadius: 10,
+                border: "1px solid var(--dn-border)",
+                background: "#f2faf8",
+              }}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
+            Service
+          </label>
+
+          <select
+            value={service}
+            onChange={(e) => setService(e.target.value)}
+            style={{
+              width: "100%",
+              padding: 10,
+              fontSize: 16,
+              boxSizing: "border-box",
+              borderRadius: 10,
+              border: "1px solid var(--dn-border)",
+              background: "#f2faf8",
+            }}
+          >
+            {selectedParticipant.participant_services
+              ?.filter((s) => s.active)
+              .map((s) => (
+                <option key={s.id} value={s.service_name}>
+                  {s.service_name}
+                </option>
+              ))}
+          </select>
+        </div>
+
         <div style={{ marginTop: 15 }}>
-      <label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
             Location of Services Provided
           </label>
 
- <label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
             <input
               type="radio"
               name="location"
@@ -494,25 +501,6 @@ style={{
             />
             Community
           </label>
-        </div>
-
-        <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-          <h3 style={{ marginTop: 0 }}>Outcome Information</h3>
-
-          <p>
-            <strong>Outcome Phrase:</strong>{" "}
-            {selectedParticipant.participant_outcomes?.[0]?.outcome_phrase || "Not set"}
-          </p>
-
-          <p>
-            <strong>Outcome Statement:</strong>{" "}
-            {selectedParticipant.participant_outcomes?.[0]?.outcome_statement || "Not set"}
-          </p>
-
-          <p>
-            <strong>Outcome Action Plan:</strong>{" "}
-            {selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "Not set"}
-          </p>
         </div>
 
         <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
@@ -584,23 +572,25 @@ style={{
         />
 
         <div style={{ marginTop: 20 }}>
-        <label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->Signature Type</label>
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
+            Signature Type
+          </label>
 
-        <label
-  style={{
-    display: "block",
-    marginBottom: 6,
-    fontWeight: 600,
-    color: "var(--dn-text)",
-  }}
->
+          <label
+            style={{
+              display: "block",
+              marginBottom: 6,
+              fontWeight: 600,
+              color: "var(--dn-text)",
+            }}
+          >
             <input
               type="radio"
               name="signatureMode"
@@ -724,103 +714,120 @@ style={{
             </div>
           </div>
         )}
-    </div>    
-<div style={{ marginTop: 15, display: "flex", gap: 10 }}>
-  <button
-    onClick={handleSubmitNote}
-    disabled={saving}
-    style={{
-      padding: "10px 18px",
-      fontSize: 16,
-      cursor: "pointer",
-      borderRadius: 10,
-      border: "none",
-      background: "var(--dn-primary)",
-      color: "#ffffff",
-      fontWeight: 600,
-    }}
-  >
-    {saving ? "Saving..." : "Submit Note"}
-  </button>
-</div>
-  <button
-    onClick={handleSaveDraft}
-    disabled={saving}
-    style={{
-      padding: "10px 18px",
-      fontSize: 16,
-      cursor: "pointer",
-      borderRadius: 10,
-      border: "1px solid var(--dn-border)",
-      background: "#ffffff",
-      color: "var(--dn-primary)",
-      fontWeight: 600,
-    }}
-  >
-    {saving ? "Saving..." : "Save Draft"}
-  </button>
+      </div>
 
-  <button
-    onClick={handleDeleteDraft}
-    disabled={saving}
-    style={{
-      padding: "10px 18px",
-      fontSize: 16,
-      cursor: "pointer",
-      borderRadius: 10,
-      border: "1px solid var(--dn-border)",
-      background: "#ffffff",
-      color: "var(--dn-primary)",
-      fontWeight: 600,
-    }}
-  >
-    Delete Draft
-  </button>
+      <div style={{ marginTop: 15, display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <button
+          onClick={handleSubmitNote}
+          disabled={saving}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+            borderRadius: 10,
+            border: "none",
+            background: "var(--dn-primary)",
+            color: "#ffffff",
+            fontWeight: 600,
+          }}
+        >
+          {saving ? "Saving..." : "Submit Note"}
+        </button>
 
-  <button
-    onClick={() => {
-      setSelectedParticipant(null);
-      setNoteText("");
-      setMessage("");
-    }}
-    style={{
-      padding: "10px 18px",
-      fontSize: 16,
-      cursor: "pointer",
-      borderRadius: 10,
-      border: "1px solid var(--dn-border)",
-      background: "#ffffff",
-      color: "var(--dn-primary)",
-      fontWeight: 600,
-    }}
-  >
-    Back
-  </button>
-</div>
+        <button
+          onClick={handleSaveDraft}
+          disabled={saving}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+            borderRadius: 10,
+            border: "1px solid var(--dn-border)",
+            background: "#ffffff",
+            color: "var(--dn-primary)",
+            fontWeight: 600,
+          }}
+        >
+          {saving ? "Saving..." : "Save Draft"}
+        </button>
 
-<p style={{ marginTop: 10 }}>{message}</p>
+        <button
+          onClick={handleDeleteDraft}
+          disabled={saving}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+            borderRadius: 10,
+            border: "1px solid var(--dn-border)",
+            background: "#ffffff",
+            color: "var(--dn-primary)",
+            fontWeight: 600,
+          }}
+        >
+          Delete Draft
+        </button>
 
-<div
-  style={{
-    width: "100%",
-    maxWidth: 500,
-    fontSize: 12,
-    color: "#666",
-    marginTop: 40,
-    paddingTop: 20,
-    borderTop: "1px solid #e5e5e5",
-    textAlign: "center",
-  }}
->
-  DreamNote Beta by Brad Beck. Please send feedback to{" "}
-  <a href="mailto:bradley@supportsbroker.com">
-    bradley@supportsbroker.com
-  </a>
-</div>
+        <button
+          onClick={() => {
+            setSelectedParticipant(null);
+            setNoteText("");
+            setMessage("");
+          }}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+            borderRadius: 10,
+            border: "1px solid var(--dn-border)",
+            background: "#ffffff",
+            color: "var(--dn-primary)",
+            fontWeight: 600,
+          }}
+        >
+          Back
+        </button>
+      </div>
 
-</main>
-    );
-  }
+      <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
+        <h3 style={{ marginTop: 0 }}>Outcome Information</h3>
+
+        <p>
+          <strong>Outcome Phrase:</strong>{" "}
+          {selectedParticipant.participant_outcomes?.[0]?.outcome_phrase || "Not set"}
+        </p>
+
+        <p>
+          <strong>Outcome Statement:</strong>{" "}
+          {selectedParticipant.participant_outcomes?.[0]?.outcome_statement || "Not set"}
+        </p>
+
+        <p>
+          <strong>Outcome Action Plan:</strong>{" "}
+          {selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "Not set"}
+        </p>
+      </div>
+
+      <p style={{ marginTop: 10 }}>{message}</p>
+
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 500,
+          fontSize: 12,
+          color: "#666",
+          marginTop: 40,
+          paddingTop: 20,
+          borderTop: "1px solid #e5e5e5",
+          textAlign: "center",
+        }}
+      >
+        DreamNote Beta by Brad Beck. Please send feedback to{" "}
+        <a href="mailto:bradley@supportsbroker.com">bradley@supportsbroker.com</a>
+      </div>
+    </main>
+  );
+}
 async function handleSaveDraft() {
   setSaving(true);
   setMessage("");
