@@ -10,10 +10,12 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [message, setMessage] = useState("");
-
+  const [goalServiceId, setGoalServiceId] = useState("");
+  const [goalRequiresDetail, setGoalRequiresDetail] = useState(false);
+  const [goalDetailPrompt, setGoalDetailPrompt] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [workerPin, setWorkerPin] = useState("");
-
+  const [goals, setGoals] = useState([]);
   const [participantName, setParticipantName] = useState("");
   const [participantCleEmail, setParticipantCleEmail] = useState("");
   const [participantServiceName, setParticipantServiceName] = useState("");
@@ -30,9 +32,12 @@ const [goalLabel, setGoalLabel] = useState("");
 const [goalSortOrder, setGoalSortOrder] = useState("1");
 
 const [editingGoalId, setEditingGoalId] = useState("");
-const [editGoalCategoryName, setEditGoalCategoryName] = useState("");
-const [editGoalLabel, setEditGoalLabel] = useState("");
-const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
+  const [editGoalCategoryName, setEditGoalCategoryName] = useState("");
+  const [editGoalLabel, setEditGoalLabel] = useState("");
+  const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
+  const [editGoalServiceId, setEditGoalServiceId] = useState("");
+  const [editGoalRequiresDetail, setEditGoalRequiresDetail] = useState(false);
+  const [editGoalDetailPrompt, setEditGoalDetailPrompt] = useState("");
 
   const [serviceParticipantId, setServiceParticipantId] = useState("");
   const [serviceName, setServiceName] = useState("");
@@ -73,10 +78,14 @@ const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
         *,
         participant_goals (
           id,
+          participant_id,
+          participant_service_id,
           goal_label,
           category_name,
           sort_order,
-          active
+          active,
+          requires_detail,
+          detail_prompt
         ),
         participant_services (
           id,
@@ -96,9 +105,17 @@ const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
       .from("worker_participants")
       .select("*");
 
+    const flattenedGoals = (participantRows || []).flatMap((participant) =>
+      (participant.participant_goals || []).map((goal) => ({
+        ...goal,
+        participant_id: goal.participant_id || participant.id,
+      }))
+    );
+
     setWorkers(workerRows || []);
     setParticipants(participantRows || []);
     setAssignments(assignmentRows || []);
+    setGoals(flattenedGoals);
   }
 
   async function handleAddWorker() {
@@ -431,10 +448,13 @@ async function handleAddGoal() {
   const { error } = await supabase.from("participant_goals").insert([
     {
       participant_id: goalParticipantId,
+      participant_service_id: goalServiceId || null,
       category_name: categoryToUse,
       goal_label: goalLabel.trim(),
       sort_order: Number(goalSortOrder) || 1,
       active: true,
+      requires_detail: goalRequiresDetail,
+      detail_prompt: goalRequiresDetail ? goalDetailPrompt.trim() || null : null,
     },
   ]);
 
@@ -448,6 +468,8 @@ async function handleAddGoal() {
   setGoalCategoryName(categoryToUse);
   setGoalLabel("");
   setGoalSortOrder("1");
+  setGoalRequiresDetail(false);
+  setGoalDetailPrompt("");
   setMessage(`Goal added. Last category used: ${categoryToUse}`);
   loadData();
 }
@@ -479,9 +501,12 @@ async function handleUpdateGoal() {
   const { error } = await supabase
     .from("participant_goals")
     .update({
+      participant_service_id: editGoalServiceId || null,
       category_name: editGoalCategoryName.trim() || "Goals",
       goal_label: editGoalLabel.trim(),
-      sort_order: Number(editGoalSortOrder) || 1
+      sort_order: Number(editGoalSortOrder) || 1,
+      requires_detail: editGoalRequiresDetail,
+      detail_prompt: editGoalRequiresDetail ? editGoalDetailPrompt.trim() || null : null,
     })
     .eq("id", editingGoalId);
 
@@ -494,6 +519,9 @@ async function handleUpdateGoal() {
   setEditGoalCategoryName("");
   setEditGoalLabel("");
   setEditGoalSortOrder("1");
+  setEditGoalServiceId("");
+  setEditGoalRequiresDetail(false);
+  setEditGoalDetailPrompt("");
 
   setMessage("Goal updated.");
   loadData();
@@ -944,6 +972,9 @@ async function handleUpdateGoal() {
     onChange={(e) => {
       const selectedId = e.target.value;
       setGoalParticipantId(selectedId);
+      setGoalServiceId("");
+      setGoalRequiresDetail(false);
+      setGoalDetailPrompt("");
 
       if (!selectedId) return;
 
@@ -964,6 +995,22 @@ async function handleUpdateGoal() {
     {participants.map((participant) => (
       <option key={participant.id} value={participant.id}>
         {participant.name}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={goalServiceId}
+    onChange={(e) => setGoalServiceId(e.target.value)}
+    style={{ padding: 10, fontSize: 16 }}
+  >
+    <option value="">All services</option>
+    {(participants
+      .find((p) => p.id === goalParticipantId)
+      ?.participant_services?.filter((s) => s.active) || []
+    ).map((service) => (
+      <option key={service.id} value={service.id}>
+        {service.service_name}
       </option>
     ))}
   </select>
@@ -995,6 +1042,24 @@ async function handleUpdateGoal() {
     style={{ padding: 10, fontSize: 16 }}
   />
 
+  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <input
+      type="checkbox"
+      checked={goalRequiresDetail}
+      onChange={(e) => setGoalRequiresDetail(e.target.checked)}
+    />
+    Require detail when checked on worker page
+  </label>
+
+  {goalRequiresDetail && (
+    <input
+      placeholder="Detail prompt"
+      value={goalDetailPrompt}
+      onChange={(e) => setGoalDetailPrompt(e.target.value)}
+      style={{ padding: 10, fontSize: 16 }}
+    />
+  )}
+
   <button onClick={handleAddGoal} style={{ padding: 10, fontSize: 16 }}>
     Add Goal
   </button>
@@ -1004,12 +1069,30 @@ async function handleUpdateGoal() {
   <section style={{ marginTop: 12, padding: 12, border: "1px solid #ccc", borderRadius: 8 }}>
     <h3>Edit Goal</h3>
 
+    <select
+      value={editGoalServiceId}
+      onChange={(e) => setEditGoalServiceId(e.target.value)}
+      style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16 }}
+    >
+      <option value="">All services</option>
+      {(participants
+        .find((p) =>
+          (p.participant_goals || []).some((goal) => goal.id === editingGoalId)
+        )
+        ?.participant_services?.filter((s) => s.active) || []
+      ).map((service) => (
+        <option key={service.id} value={service.id}>
+          {service.service_name}
+        </option>
+      ))}
+    </select>
+
     <input
       type="text"
       placeholder="Category name"
       value={editGoalCategoryName}
       onChange={(e) => setEditGoalCategoryName(e.target.value)}
-      style={{ display: "block", marginBottom: 8, width: "100%" }}
+      style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16 }}
     />
 
     <input
@@ -1017,7 +1100,7 @@ async function handleUpdateGoal() {
       placeholder="Goal label"
       value={editGoalLabel}
       onChange={(e) => setEditGoalLabel(e.target.value)}
-      style={{ display: "block", marginBottom: 8, width: "100%" }}
+      style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16 }}
     />
 
     <input
@@ -1025,8 +1108,27 @@ async function handleUpdateGoal() {
       placeholder="Sort order"
       value={editGoalSortOrder}
       onChange={(e) => setEditGoalSortOrder(e.target.value)}
-      style={{ display: "block", marginBottom: 8, width: 120 }}
+      style={{ display: "block", marginBottom: 8, width: 120, padding: 10, fontSize: 16 }}
     />
+
+    <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <input
+        type="checkbox"
+        checked={editGoalRequiresDetail}
+        onChange={(e) => setEditGoalRequiresDetail(e.target.checked)}
+      />
+      Require detail when checked on worker page
+    </label>
+
+    {editGoalRequiresDetail && (
+      <input
+        type="text"
+        placeholder="Detail prompt"
+        value={editGoalDetailPrompt}
+        onChange={(e) => setEditGoalDetailPrompt(e.target.value)}
+        style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16 }}
+      />
+    )}
 
     <div style={{ display: "flex", gap: 8 }}>
       <button onClick={handleUpdateGoal}>Save Goal</button>
@@ -1036,6 +1138,9 @@ async function handleUpdateGoal() {
           setEditGoalCategoryName("");
           setEditGoalLabel("");
           setEditGoalSortOrder("1");
+          setEditGoalServiceId("");
+          setEditGoalRequiresDetail(false);
+          setEditGoalDetailPrompt("");
         }}
       >
         Cancel
@@ -1174,6 +1279,10 @@ async function handleUpdateGoal() {
   >
     <span>
       {goal.sort_order}. {goal.category_name || "Goals"}: {goal.goal_label}
+      {goal.participant_service_id
+        ? ` (${participant.participant_services?.find((s) => s.id === goal.participant_service_id)?.service_name || "Specific service"})`
+        : " (All services)"}
+      {goal.requires_detail ? ` — Detail prompt: ${goal.detail_prompt || "Required"}` : ""}
     </span>
 
     <div style={{ display: "flex", gap: 8 }}>
@@ -1183,6 +1292,9 @@ async function handleUpdateGoal() {
           setEditGoalCategoryName(goal.category_name || "Goals");
           setEditGoalLabel(goal.goal_label || "");
           setEditGoalSortOrder(String(goal.sort_order || 1));
+          setEditGoalServiceId(goal.participant_service_id || "");
+          setEditGoalRequiresDetail(Boolean(goal.requires_detail));
+          setEditGoalDetailPrompt(goal.detail_prompt || "");
         }}
       >
         Edit

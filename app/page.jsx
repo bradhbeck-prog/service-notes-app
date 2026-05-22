@@ -15,6 +15,14 @@ function getCurrentTime() {
   return `${hours}:${minutes}`;
 }
 
+
+function normalizeGoalDetails(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).map(([key, val]) => [String(key), typeof val === "string" ? val : String(val ?? "")])
+  );
+}
+
 export default function Page() {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
@@ -28,6 +36,7 @@ export default function Page() {
   const [location, setLocation] = useState("community");
   const [service, setService] = useState("");
   const [selectedGoals, setSelectedGoals] = useState([]);
+const [goalDetails, setGoalDetails] = useState({});
   const [signatureMode, setSignatureMode] = useState("typed");
   const [typedSignature, setTypedSignature] = useState("");
   const [signatureFont, setSignatureFont] = useState("Pacifico");
@@ -40,6 +49,7 @@ const [loadingDraft, setLoadingDraft] = useState(true);
 
 useEffect(() => {
   if (!worker) return;
+  if (!participants.length) return;
 
   const loadDraft = async () => {
     setLoadingDraft(true);
@@ -51,32 +61,49 @@ useEffect(() => {
       .eq("status", "draft")
       .order("created_at", { ascending: false })
       .limit(1)
-.maybeSingle();
+      .maybeSingle();
 
-    if (data) {
-      setHasDraft(true);
-      setCurrentNoteId(data.id);
-
-      // preload fields
-const matchingParticipant = participants.find(
-  (p) => p.id === data.participant_id
-);
-
-setSelectedParticipant(matchingParticipant || data.participant_id);
-      setShiftDate(data.shift_date || getTodayDate());
-      setTimeIn(data.time_in || getCurrentTime());
-      setTimeOut(data.time_out || getCurrentTime());
-      setLocation(data.location || "community");
-setService(data.service || "");
-setNoteText(data.narrative || "");
-setSelectedGoals(data.goals || []);
+    if (error) {
+      console.error("Load draft error:", error);
+      setLoadingDraft(false);
+      return;
     }
 
+    if (!data) {
+      setLoadingDraft(false);
+      return;
+    }
+
+    setHasDraft(true);
+    setCurrentNoteId(data.id);
+
+    const matchingParticipant = participants.find(
+      (p) => p.id === data.participant_id
+    );
+
+    if (!matchingParticipant) {
+      setLoadingDraft(false);
+      return;
+    }
+
+    const firstService = matchingParticipant.participant_services?.find(
+      (s) => s.active
+    );
+
+    setSelectedParticipant(matchingParticipant);
+    setService(data.service || firstService?.service_name || "");
+    setShiftDate(data.shift_date || getTodayDate());
+    setTimeIn(data.time_in || getCurrentTime());
+    setTimeOut(data.time_out || getCurrentTime());
+    setLocation(data.location || "community");
+    setNoteText(data.narrative || "");
+    setSelectedGoals(Array.isArray(data.goals) ? data.goals.map(String) : []);
+    setGoalDetails(normalizeGoalDetails(data.goal_details));
     setLoadingDraft(false);
   };
 
   loadDraft();
-}, [worker]);
+}, [worker, participants]);
 
   async function handleLogin() {
     setMessage("");
@@ -117,13 +144,16 @@ setSelectedGoals(data.goals || []);
           outcome_statement,
           outcome_action_plan
         ),
-        participant_goals (
-          id,
-          goal_label,
-          sort_order,
-          active,
-          category_name
-        ),
+participant_goals (
+  id,
+  goal_label,
+  sort_order,
+  active,
+  category_name,
+  participant_service_id,
+  detail_prompt,
+  requires_detail
+),
         participant_services (
           id,
           service_name,
@@ -136,10 +166,26 @@ setSelectedGoals(data.goals || []);
 setParticipants(participantRows || []);
 
 if (participantRows?.length === 1) {
-  setSelectedParticipant(participantRows[0]);
+  const participant = participantRows[0];
+  setSelectedParticipant(participant);
+
+  const firstService = participant.participant_services?.find((s) => s.active);
+  setService(firstService?.service_name || "");
 }
 
 setMessage("");
+}
+
+
+function getMissingGoalDetailLabels() {
+  return visibleGoals
+    .filter(
+      (goal) =>
+        selectedGoals.includes(String(goal.id)) &&
+        goal.requires_detail &&
+        !String(goalDetails[String(goal.id)] || "").trim()
+    )
+    .map((goal) => goal.goal_label);
 }
 
 async function handleSubmitNote() {
@@ -150,6 +196,12 @@ async function handleSubmitNote() {
 
     if (!shiftDate || !timeIn || !timeOut || !noteText.trim()) {
       setMessage("Please complete date, time in, time out, and note");
+      return;
+    }
+
+    const missingGoalDetails = getMissingGoalDetailLabels();
+    if (missingGoalDetails.length > 0) {
+      setMessage(`Please complete the detail field for: ${missingGoalDetails.join(", ")}`);
       return;
     }
 
@@ -168,20 +220,23 @@ async function handleSubmitNote() {
     setSaving(true);
     setMessage("");
 
-    const insertPayload = {
-      worker_id: worker.id,
-      participant_id: selectedParticipant.id,
-      shift_date: shiftDate,
-      time_in: timeIn,
-      time_out: timeOut,
-      service: service,
-      location: location,
-      narrative: noteText.trim(),
-      worker_signature_mode: signatureMode,
-      worker_typed_signature: typedSignature,
-      worker_signature_font: signatureFont,
-      worker_signature_date: shiftDate,
-    };
+ const insertPayload = {
+  worker_id: worker.id,
+  participant_id: selectedParticipant.id,
+  shift_date: shiftDate,
+  time_in: timeIn,
+  time_out: timeOut,
+  service: service,
+  location: location,
+  narrative: noteText.trim(),
+  goals: selectedGoals.map(String),
+  goal_details: normalizeGoalDetails(goalDetails),
+  status: "submitted",
+  worker_signature_mode: signatureMode,
+  worker_typed_signature: typedSignature,
+  worker_signature_font: signatureFont,
+  worker_signature_date: shiftDate,
+};
 
     const { data: noteInsert, error } = await supabase
       .from("service_notes")
@@ -234,9 +289,12 @@ async function handleSubmitNote() {
           outcomeActionPlan:
             selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "",
           selectedGoals:
-            selectedParticipant.participant_goals?.filter((goal) =>
-              selectedGoals.includes(goal.id)
-            ) || [],
+            selectedParticipant.participant_goals
+              ?.filter((goal) => selectedGoals.includes(String(goal.id)))
+              .map((goal) => ({
+                ...goal,
+                detail_value: goalDetails[goal.id] || "",
+              })) || [],
           noteText: noteText.trim(),
           signatureMode,
           typedSignature,
@@ -279,9 +337,34 @@ async function handleSubmitNote() {
     setSaving(false);
     setNoteText("");
     setSelectedGoals([]);
+    setGoalDetails({});
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
   }
+
+
+const activeServices =
+  selectedParticipant?.participant_services?.filter((s) => s.active) || [];
+
+const selectedServiceRow =
+  activeServices.find((s) => s.service_name === service) || null;
+
+
+const visibleGoals = (selectedParticipant?.participant_goals || [])
+  .filter((goal) => goal.active)
+  .filter((goal) => {
+    if (!goal.participant_service_id) return true;
+    if (goal.participant_service_id === selectedServiceRow?.id) return true;
+    return selectedGoals.includes(String(goal.id));
+  })
+  .sort((a, b) => a.sort_order - b.sort_order);
+
+const groupedVisibleGoals = visibleGoals.reduce((acc, goal) => {
+  const category = goal.category_name || "Goals";
+  if (!acc[category]) acc[category] = [];
+  acc[category].push(goal);
+  return acc;
+}, {});
 
 if (selectedParticipant) {
   return (
@@ -438,7 +521,11 @@ if (selectedParticipant) {
 
           <select
             value={service}
-            onChange={(e) => setService(e.target.value)}
+onChange={(e) => {
+  setService(e.target.value);
+  setSelectedGoals([]);
+  setGoalDetails({});
+}}
             style={{
               width: "100%",
               padding: 10,
@@ -503,73 +590,144 @@ if (selectedParticipant) {
           </label>
         </div>
 
-        <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-          <h3 style={{ margin: 0 }}>Goals worked on today</h3>
+        <div
+          style={{
+            marginTop: 20,
+            padding: 16,
+            border: "1px solid var(--dn-border)",
+            borderRadius: 12,
+            background: "#fff",
+          }}
+        >
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>Goals worked on today</div>
 
-          {selectedParticipant.participant_goals?.length ? (
-            <div style={{ display: "grid", gap: 8 }}>
-              {Object.entries(
-                (selectedParticipant.participant_goals || [])
-                  .filter((goal) => goal.active)
-                  .sort((a, b) => a.sort_order - b.sort_order)
-                  .reduce((acc, goal) => {
-                    const category = goal.category_name || "Goals";
-                    if (!acc[category]) acc[category] = [];
-                    acc[category].push(goal);
-                    return acc;
-                  }, {})
-              ).map(([category, goals]) => (
+          {visibleGoals.length > 0 ? (
+            <div style={{ display: "grid", gap: 16 }}>
+              {Object.entries(groupedVisibleGoals).map(([category, goals]) => (
                 <div key={category}>
-                  <div style={{ fontWeight: "bold", marginTop: 10 }}>{category}</div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 14,
+                      marginBottom: 8,
+                      color: "var(--dn-primary)",
+                    }}
+                  >
+                    {category}
+                  </div>
 
-                  {goals.map((goal) => (
-                    <label key={goal.id} style={{ display: "block", marginLeft: 10 }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedGoals.includes(goal.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setSelectedGoals([...selectedGoals, goal.id]);
-                          } else {
-                            setSelectedGoals(selectedGoals.filter((id) => id !== goal.id));
-                          }
-                        }}
-                        style={{ marginRight: 8 }}
-                      />
-                      {goal.goal_label}
-                    </label>
-                  ))}
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {goals.map((goal) => {
+                      const goalId = String(goal.id);
+                      const isChecked = selectedGoals.includes(goalId);
+
+                      return (
+                        <div
+                          key={goal.id}
+                          style={{
+                            padding: 10,
+                            border: "1px solid var(--dn-border)",
+                            borderRadius: 10,
+                            background: "#fafafa",
+                          }}
+                        >
+                          <label
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+
+                                setSelectedGoals((prev) =>
+                                  checked
+                                    ? [...prev, goalId]
+                                    : prev.filter((id) => id !== goalId)
+                                );
+
+                                if (!checked) {
+                                  setGoalDetails((prev) => {
+                                    const next = { ...prev };
+                                    delete next[goalId];
+                                    return next;
+                                  });
+                                }
+                              }}
+                            />
+                            <span>{goal.goal_label}</span>
+                          </label>
+
+                          {isChecked && goal.requires_detail && (
+                            <div style={{ marginTop: 10 }}>
+                              <input
+                                type="text"
+                                placeholder={goal.detail_prompt || "Add details"}
+                                value={goalDetails[goalId] || ""}
+                                onChange={(e) =>
+                                  setGoalDetails((prev) => ({
+                                    ...prev,
+                                    [goalId]: e.target.value,
+                                  }))
+                                }
+                                style={{
+                                  width: "100%",
+                                  padding: "10px 12px",
+                                  borderRadius: 8,
+                                  border: "1px solid var(--dn-border)",
+                                  fontSize: 14,
+                                  boxSizing: "border-box",
+                                }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p>No goals set.</p>
+            <p style={{ margin: 0 }}>No goals set for this service.</p>
           )}
         </div>
 
-        <label
-          style={{
-            display: "block",
-            marginTop: 20,
-            marginBottom: 6,
-            fontWeight: "600",
-          }}
-        >
-          What activities were completed today, what support was given, and what progress was made?
-        </label>
+        <div style={{ marginTop: 20 }}>
+          <label
+            htmlFor="noteText"
+            style={{
+              display: "block",
+              fontWeight: 700,
+              marginBottom: 8,
+            }}
+          >
+            What activities were completed today, what support was given, and what progress was made?
+          </label>
 
-        <textarea
-          placeholder="Write service note..."
-          value={noteText}
-          onChange={(e) => setNoteText(e.target.value)}
-          style={{
-            width: "100%",
-            height: 200,
-            padding: 12,
-            fontSize: 16,
-            boxSizing: "border-box",
-          }}
-        />
+          <textarea
+            id="noteText"
+            placeholder="Write service note..."
+            value={noteText}
+            onChange={(e) => setNoteText(e.target.value)}
+            style={{
+              width: "100%",
+              minHeight: 180,
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid var(--dn-border)",
+              fontSize: 16,
+              resize: "vertical",
+              background: "#fff",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
 
         <div style={{ marginTop: 20 }}>
           <label
@@ -768,12 +926,11 @@ if (selectedParticipant) {
           Delete Draft
         </button>
 
-        <button
-          onClick={() => {
-            setSelectedParticipant(null);
-            setNoteText("");
-            setMessage("");
-          }}
+<button
+  onClick={() => {
+    setSelectedParticipant(null);
+    setMessage("");
+  }}
           style={{
             padding: "10px 18px",
             fontSize: 16,
@@ -828,6 +985,7 @@ if (selectedParticipant) {
     </main>
   );
 }
+
 async function handleSaveDraft() {
   setSaving(true);
   setMessage("");
@@ -862,7 +1020,8 @@ async function handleSaveDraft() {
     location,
     service,
     narrative: noteText.trim(),
-    goals: selectedGoals,
+    goals: selectedGoals.map(String),
+    goal_details: normalizeGoalDetails(goalDetails),
     worker_signature_mode: signatureMode,
     worker_typed_signature: signatureMode === "typed" ? typedSignature : null,
     worker_signature_font: signatureFont,
