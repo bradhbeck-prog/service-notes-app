@@ -33,7 +33,7 @@ async function handleLogin(e) {
     if (workerError) {
       setMessage(workerError.message);
     } else {
-      setMessage("Login successful and worker linked");
+      window.location.href = "/worker";
     }
   }
 }

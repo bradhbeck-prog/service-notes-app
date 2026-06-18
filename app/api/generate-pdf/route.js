@@ -231,7 +231,18 @@ export async function POST(req) {
     const groupedGoals = (selectedGoals || []).reduce((acc, goal) => {
       const category = goal.category_name || "Goals";
       if (!acc[category]) acc[category] = [];
-      acc[category].push(goal.goal_label || goal);
+
+      const parts = [goal.goal_label || goal];
+
+      if (goal.prompt_level) {
+        parts.push(`Prompt level: ${goal.prompt_level}`);
+      }
+
+      if (goal.detail_value) {
+        parts.push(`Detail: ${goal.detail_value}`);
+      }
+
+      acc[category].push(parts.join(" | "));
       return acc;
     }, {});
 
@@ -392,9 +403,6 @@ export async function POST(req) {
 
     y -= 20;
 
-    const leftX = 70;
-    const rightX = 300;
-
     Object.entries(groupedGoals).forEach(([category, goals]) => {
       y -= 6;
 
@@ -407,33 +415,30 @@ export async function POST(req) {
 
       y -= 16;
 
-      const half = Math.ceil(goals.length / 2);
-      const leftGoals = goals.slice(0, half);
-      const rightGoals = goals.slice(half);
+      goals.forEach((goal) => {
+        const lines = wrapText(`- ${goal}`, font, 11, CONTENT_WIDTH - 40);
 
-      let columnY = y;
+        lines.forEach((line) => {
+          if (y < BOTTOM + 70) {
+            newPage();
+            page.drawText("Goals worked on today (continued):", { x: 50, y, size: 13, font });
+            y -= 20;
+          }
 
-      leftGoals.forEach((goal, i) => {
-        page.drawText(`- ${goal}`, {
-          x: leftX,
-          y: columnY,
-          size: 12,
-          font,
-        });
-
-        if (rightGoals[i]) {
-          page.drawText(`- ${rightGoals[i]}`, {
-            x: rightX,
-            y: columnY,
-            size: 12,
+          page.drawText(line, {
+            x: 70,
+            y,
+            size: 11,
             font,
           });
-        }
 
-        columnY -= 16;
+          y -= 14;
+        });
+
+        y -= 4;
       });
 
-      y = columnY - 12;
+      y -= 8;
     });
 
     y -= 10;

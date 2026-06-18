@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [goalServiceId, setGoalServiceId] = useState("");
   const [goalRequiresDetail, setGoalRequiresDetail] = useState(false);
+  const [goalRequiresPromptLevel, setGoalRequiresPromptLevel] = useState(false);
   const [goalDetailPrompt, setGoalDetailPrompt] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [workerPin, setWorkerPin] = useState("");
@@ -37,6 +38,7 @@ const [editingGoalId, setEditingGoalId] = useState("");
   const [editGoalSortOrder, setEditGoalSortOrder] = useState("1");
   const [editGoalServiceId, setEditGoalServiceId] = useState("");
   const [editGoalRequiresDetail, setEditGoalRequiresDetail] = useState(false);
+  const [editGoalRequiresPromptLevel, setEditGoalRequiresPromptLevel] = useState(false);
   const [editGoalDetailPrompt, setEditGoalDetailPrompt] = useState("");
 
   const [serviceParticipantId, setServiceParticipantId] = useState("");
@@ -454,6 +456,7 @@ async function handleAddGoal() {
       sort_order: Number(goalSortOrder) || 1,
       active: true,
       requires_detail: goalRequiresDetail,
+      requires_prompt_level: goalRequiresPromptLevel,
       detail_prompt: goalRequiresDetail ? goalDetailPrompt.trim() || null : null,
     },
   ]);
@@ -469,6 +472,7 @@ async function handleAddGoal() {
   setGoalLabel("");
   setGoalSortOrder("1");
   setGoalRequiresDetail(false);
+  setGoalRequiresPromptLevel(false);
   setGoalDetailPrompt("");
   setMessage(`Goal added. Last category used: ${categoryToUse}`);
   loadData();
@@ -506,6 +510,7 @@ async function handleUpdateGoal() {
       goal_label: editGoalLabel.trim(),
       sort_order: Number(editGoalSortOrder) || 1,
       requires_detail: editGoalRequiresDetail,
+      requires_prompt_level: editGoalRequiresPromptLevel,
       detail_prompt: editGoalRequiresDetail ? editGoalDetailPrompt.trim() || null : null,
     })
     .eq("id", editingGoalId);
@@ -521,6 +526,7 @@ async function handleUpdateGoal() {
   setEditGoalSortOrder("1");
   setEditGoalServiceId("");
   setEditGoalRequiresDetail(false);
+  setEditGoalRequiresPromptLevel(false);
   setEditGoalDetailPrompt("");
 
   setMessage("Goal updated.");
@@ -1051,6 +1057,15 @@ async function handleUpdateGoal() {
     Require detail when checked on worker page
   </label>
 
+  <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <input
+      type="checkbox"
+      checked={goalRequiresPromptLevel}
+      onChange={(e) => setGoalRequiresPromptLevel(e.target.checked)}
+    />
+    Require prompt level when checked on worker page
+  </label>
+
   {goalRequiresDetail && (
     <input
       placeholder="Detail prompt"
@@ -1130,6 +1145,15 @@ async function handleUpdateGoal() {
       />
     )}
 
+    <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <input
+        type="checkbox"
+        checked={editGoalRequiresPromptLevel}
+        onChange={(e) => setEditGoalRequiresPromptLevel(e.target.checked)}
+      />
+      Require prompt level when checked on worker page
+    </label>
+
     <div style={{ display: "flex", gap: 8 }}>
       <button onClick={handleUpdateGoal}>Save Goal</button>
       <button
@@ -1140,6 +1164,7 @@ async function handleUpdateGoal() {
           setEditGoalSortOrder("1");
           setEditGoalServiceId("");
           setEditGoalRequiresDetail(false);
+          setEditGoalRequiresPromptLevel(false);
           setEditGoalDetailPrompt("");
         }}
       >
@@ -1294,6 +1319,7 @@ async function handleUpdateGoal() {
           setEditGoalSortOrder(String(goal.sort_order || 1));
           setEditGoalServiceId(goal.participant_service_id || "");
           setEditGoalRequiresDetail(Boolean(goal.requires_detail));
+          setEditGoalRequiresPromptLevel(Boolean(goal.requires_prompt_level));
           setEditGoalDetailPrompt(goal.detail_prompt || "");
         }}
       >
