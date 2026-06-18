@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
-import { supabase } from "../../lib/supabase";
+import { supabase } from "../lib/supabase";
 
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
