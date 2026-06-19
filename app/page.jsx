@@ -924,7 +924,7 @@ onChange={(e) => {
             fontWeight: 600,
           }}
         >
-          Delete Draft
+          Clear Note
         </button>
 
 <button
@@ -1066,30 +1066,28 @@ async function handleSaveDraft() {
 }
 
   async function handleDeleteDraft() {
-    if (!currentNoteId) {
-      setMessage("No draft to delete.");
-      return;
-    }
-
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase
-      .from("service_notes")
-      .delete()
-      .eq("id", currentNoteId);
+    if (currentNoteId) {
+      const { error } = await supabase
+        .from("service_notes")
+        .delete()
+        .eq("id", currentNoteId);
 
-    setSaving(false);
-
-    if (error) {
-      setMessage("Could not delete draft.");
-      return;
+      if (error) {
+        setSaving(false);
+        setMessage("Could not clear note.");
+        return;
+      }
     }
 
     setCurrentNoteId(null);
     setHasDraft(false);
     setSelectedParticipant(null);
     setNoteText("");
+    setGoalDetails({});
+    setPromptLevels({});
     setShiftDate(getTodayDate());
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
@@ -1098,7 +1096,8 @@ async function handleSaveDraft() {
     setSelectedGoals([]);
     setTypedSignature("");
     setDrawnSignature("");
-    setMessage("Draft deleted.");
+    setSaving(false);
+    setMessage("Note cleared.");
   }
 
   if (worker && loadingDraft) {
