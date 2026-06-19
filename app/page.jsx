@@ -338,7 +338,6 @@ async function handleSubmitNote() {
     setNoteText("");
     setSelectedGoals([]);
     setGoalDetails({});
-    setPromptLevels({});
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
   }
@@ -1087,7 +1086,6 @@ async function handleSaveDraft() {
     setSelectedParticipant(null);
     setNoteText("");
     setGoalDetails({});
-    setPromptLevels({});
     setShiftDate(getTodayDate());
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
