@@ -37,7 +37,6 @@ export default function Page() {
   const [service, setService] = useState("");
   const [selectedGoals, setSelectedGoals] = useState([]);
 const [goalDetails, setGoalDetails] = useState({});
-const [promptLevels, setPromptLevels] = useState({});
   const [signatureMode, setSignatureMode] = useState("typed");
   const [typedSignature, setTypedSignature] = useState("");
   const [signatureFont, setSignatureFont] = useState("Pacifico");
@@ -47,98 +46,6 @@ const [saving, setSaving] = useState(false);
 const [currentNoteId, setCurrentNoteId] = useState(null);
 const [hasDraft, setHasDraft] = useState(false);
 const [loadingDraft, setLoadingDraft] = useState(true);
-
-
-async function loadParticipantsForWorker(workerData) {
-  const { data: assignmentRows } = await supabase
-    .from("worker_participants")
-    .select("participant_id")
-    .eq("worker_id", workerData.id);
-
-  const participantIds = (assignmentRows || []).map((row) => row.participant_id);
-
-  if (participantIds.length === 0) {
-    setParticipants([]);
-    setMessage("No participants assigned");
-    setLoadingDraft(false);
-    return;
-  }
-
-  const { data: participantRows } = await supabase
-    .from("participants")
-    .select(`
-      *,
-      participant_outcomes (
-        outcome_phrase,
-        outcome_statement,
-        outcome_action_plan
-      ),
-      participant_goals (
-        id,
-        goal_label,
-        sort_order,
-        active,
-        category_name,
-        participant_service_id,
-        detail_prompt,
-        requires_detail,
-        requires_prompt_level
-      ),
-      participant_services (
-        id,
-        service_name,
-        active
-      )
-    `)
-    .in("id", participantIds)
-    .eq("active", true);
-
-  setParticipants(participantRows || []);
-
-  if (participantRows?.length === 1) {
-    const participant = participantRows[0];
-    setSelectedParticipant(participant);
-
-    const firstService = participant.participant_services?.find((s) => s.active);
-    setService(firstService?.service_name || "");
-  }
-
-  setMessage("");
-}
-
-
-
-useEffect(() => {
-  async function loadLoggedInWorker() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      window.location.href = "/login";
-      return;
-    }
-
-    const { data: workerData, error } = await supabase
-      .from("workers")
-      .select("*")
-      .eq("auth_user_id", user.id)
-      .eq("active", true)
-      .single();
-
-    if (error || !workerData) {
-      setMessage("No active worker profile found for this login.");
-      setLoadingDraft(false);
-      return;
-    }
-
-    setWorker(workerData);
-    await loadParticipantsForWorker(workerData);
-  }
-
-  loadLoggedInWorker();
-}, []);
-
 
 useEffect(() => {
   if (!worker) return;
@@ -245,8 +152,7 @@ participant_goals (
   category_name,
   participant_service_id,
   detail_prompt,
-  requires_detail,
-        requires_prompt_level
+  requires_detail
 ),
         participant_services (
           id,
@@ -282,17 +188,6 @@ function getMissingGoalDetailLabels() {
     .map((goal) => goal.goal_label);
 }
 
-function getMissingPromptLevelLabels() {
-  return visibleGoals
-    .filter(
-      (goal) =>
-        selectedGoals.includes(String(goal.id)) &&
-        goal.requires_prompt_level &&
-        !String(promptLevels[String(goal.id)] || "").trim()
-    )
-    .map((goal) => goal.goal_label);
-}
-
 async function handleSubmitNote() {
     if (!worker || !selectedParticipant) {
       setMessage("Missing worker or participant");
@@ -307,12 +202,6 @@ async function handleSubmitNote() {
     const missingGoalDetails = getMissingGoalDetailLabels();
     if (missingGoalDetails.length > 0) {
       setMessage(`Please complete the detail field for: ${missingGoalDetails.join(", ")}`);
-      return;
-    }
-
-    const missingPromptLevels = getMissingPromptLevelLabels();
-    if (missingPromptLevels.length > 0) {
-      setMessage(`Please select a prompt level for: ${missingPromptLevels.join(", ")}`);
       return;
     }
 
@@ -405,7 +294,6 @@ async function handleSubmitNote() {
               .map((goal) => ({
                 ...goal,
                 detail_value: goalDetails[goal.id] || "",
-                prompt_level: promptLevels[goal.id] || "",
               })) || [],
           noteText: noteText.trim(),
           signatureMode,
@@ -769,51 +657,11 @@ onChange={(e) => {
                                     delete next[goalId];
                                     return next;
                                   });
-
-                                  setPromptLevels((prev) => {
-                                    const next = { ...prev };
-                                    delete next[goalId];
-                                    return next;
-                                  });
                                 }
                               }}
                             />
                             <span>{goal.goal_label}</span>
                           </label>
-
-                          {isChecked && goal.requires_prompt_level && (
-                            <div style={{ marginTop: 10 }}>
-                              <label style={{ fontSize: 13, fontWeight: 700 }}>
-                                Prompt level
-                              </label>
-                              <select
-                                value={promptLevels[goalId] || ""}
-                                onChange={(e) =>
-                                  setPromptLevels((prev) => ({
-                                    ...prev,
-                                    [goalId]: e.target.value,
-                                  }))
-                                }
-                                style={{
-                                  width: "100%",
-                                  padding: "10px 12px",
-                                  borderRadius: 8,
-                                  border: "1px solid var(--dn-border)",
-                                  fontSize: 14,
-                                  boxSizing: "border-box",
-                                  marginTop: 6,
-                                }}
-                              >
-                                <option value="">Select prompt level</option>
-                                <option value="Independent">Independent</option>
-                                <option value="Verbal prompt">Verbal prompt</option>
-                                <option value="Gesture prompt">Gesture prompt</option>
-                                <option value="Modeling">Modeling</option>
-                                <option value="Partial physical prompt">Partial physical prompt</option>
-                                <option value="Full physical prompt">Full physical prompt</option>
-                              </select>
-                            </div>
-                          )}
 
                           {isChecked && goal.requires_detail && (
                             <div style={{ marginTop: 10 }}>
@@ -1238,7 +1086,6 @@ async function handleSaveDraft() {
     setSelectedParticipant(null);
     setNoteText("");
     setGoalDetails({});
-    setPromptLevels({});
     setShiftDate(getTodayDate());
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
