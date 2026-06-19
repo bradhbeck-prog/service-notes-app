@@ -450,6 +450,7 @@ async function handleSubmitNote() {
     setNoteText("");
     setSelectedGoals([]);
     setGoalDetails({});
+    setPromptLevels({});
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
   }
