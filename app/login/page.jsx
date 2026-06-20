@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("password") === "updated") {
+      setMessage("Password updated. Sign in with your new password.");
+      window.history.replaceState({}, document.title, "/login");
+    }
+  }, []);
 
 async function handleLogin(e) {
   e.preventDefault();
