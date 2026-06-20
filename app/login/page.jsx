@@ -10,32 +10,58 @@ export default function LoginPage() {
 
 async function handleLogin(e) {
   e.preventDefault();
+  setMessage("");
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: loginData, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
     setMessage(error.message);
-  } else {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    const { error: workerError } = await supabase
-      .from("workers")
-      .update({
-        auth_user_id: user.id,
-      })
-      .eq("email", user.email);
-
-    if (workerError) {
-      setMessage(workerError.message);
-    } else {
-      window.location.href = "/worker";
-    }
+    return;
   }
+
+  const user = loginData.user;
+
+  const { data: adminMembership, error: membershipError } = await supabase
+    .from("workspace_memberships")
+    .select("role")
+    .eq("user_id", user.id)
+    .eq("active", true)
+    .in("role", ["owner", "admin"])
+    .limit(1)
+    .maybeSingle();
+
+  if (membershipError) {
+    setMessage(membershipError.message);
+    return;
+  }
+
+  if (adminMembership) {
+    window.location.href = "/admin";
+    return;
+  }
+
+  const { data: worker, error: workerError } = await supabase
+    .from("workers")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+
+  if (workerError) {
+    setMessage(workerError.message);
+    return;
+  }
+
+  if (worker) {
+    window.location.href = "/worker";
+    return;
+  }
+
+  await supabase.auth.signOut();
+  setMessage("This login does not have an active DreamNote role yet.");
 }
 return (
     <div style={{ padding: 40 }}>

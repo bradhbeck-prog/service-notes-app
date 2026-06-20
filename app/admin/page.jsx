@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 export default function AdminPage() {
   const [adminPin, setAdminPin] = useState("");
   const [authorized, setAuthorized] = useState(false);
+  const [checkingAccess, setCheckingAccess] = useState(true);
   const [workers, setWorkers] = useState([]);
   const [participants, setParticipants] = useState([]);
   const [assignments, setAssignments] = useState([]);
@@ -62,8 +63,40 @@ const [editingGoalId, setEditingGoalId] = useState("");
   const [removeAssignmentParticipantId, setRemoveAssignmentParticipantId] = useState("");
 
   useEffect(() => {
-    if (!authorized) return;
-    loadData();
+    async function checkAdminAccess() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setCheckingAccess(false);
+        return;
+      }
+
+      const { data: membership, error } = await supabase
+        .from("workspace_memberships")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("active", true)
+        .in("role", ["owner", "admin"])
+        .limit(1)
+        .maybeSingle();
+
+      if (error || !membership) {
+        await supabase.auth.signOut();
+        setCheckingAccess(false);
+        return;
+      }
+
+      setAuthorized(true);
+      setCheckingAccess(false);
+    }
+
+    checkAdminAccess();
+  }, []);
+
+  useEffect(() => {
+    if (authorized) loadData();
   }, [authorized]);
 
   async function loadData() {
@@ -128,11 +161,6 @@ const [editingGoalId, setEditingGoalId] = useState("");
       return;
     }
 
-    if (workerPin.trim() === process.env.NEXT_PUBLIC_ADMIN_PIN) {
-      setMessage("That PIN is reserved for admin. Please choose a different PIN.");
-      return;
-    }
-
     const { error } = await supabase.from("workers").insert([
       {
         name: workerName.trim(),
@@ -161,11 +189,6 @@ const [editingGoalId, setEditingGoalId] = useState("");
 
     if (!pinEditWorkerId || !newWorkerPin.trim()) {
       setMessage("Select a worker and enter a new PIN.");
-      return;
-    }
-
-    if (newWorkerPin.trim() === process.env.NEXT_PUBLIC_ADMIN_PIN) {
-      setMessage("That PIN is reserved for admin. Please choose a different PIN.");
       return;
     }
 
@@ -649,11 +672,23 @@ async function handleUpdateGoal() {
       .join(", ");
   }
 
+  if (checkingAccess) {
+    return (
+      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500, margin: "0 auto" }}>
+        <h1>DreamNote Admin</h1>
+        <p>Checking access...</p>
+      </main>
+    );
+  }
+
   if (!authorized) {
-    function handleAdminLogin(e) {
+    function handleLegacyAdminLogin(e) {
       e.preventDefault();
 
-      if (adminPin === process.env.NEXT_PUBLIC_ADMIN_PIN) {
+      if (
+        process.env.NEXT_PUBLIC_ADMIN_PIN &&
+        adminPin === process.env.NEXT_PUBLIC_ADMIN_PIN
+      ) {
         setAuthorized(true);
         setMessage("");
       } else {
@@ -664,8 +699,19 @@ async function handleUpdateGoal() {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500, margin: "0 auto" }}>
         <h1>DreamNote Admin</h1>
+        <p>
+          Sign in with your DreamNote owner account, or use the temporary legacy
+          admin PIN.
+        </p>
 
-        <form onSubmit={handleAdminLogin}>
+        <button
+          onClick={() => { window.location.href = "/login"; }}
+          style={{ padding: "10px 18px", fontSize: 16, cursor: "pointer" }}
+        >
+          Email login
+        </button>
+
+        <form onSubmit={handleLegacyAdminLogin} style={{ marginTop: 20 }}>
           <input
             type="password"
             placeholder="Enter Admin PIN"
@@ -675,7 +721,6 @@ async function handleUpdateGoal() {
               width: "100%",
               padding: 12,
               fontSize: 16,
-              marginTop: 10,
               marginBottom: 12,
               boxSizing: "border-box"
             }}
@@ -683,13 +728,9 @@ async function handleUpdateGoal() {
 
           <button
             type="submit"
-            style={{
-              padding: "10px 18px",
-              fontSize: 16,
-              cursor: "pointer"
-            }}
+            style={{ padding: "10px 18px", fontSize: 16, cursor: "pointer" }}
           >
-            Enter
+            Enter with PIN
           </button>
         </form>
 
