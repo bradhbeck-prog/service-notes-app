@@ -11,6 +11,8 @@ export default function AdminPage() {
   const [participants, setParticipants] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [message, setMessage] = useState("");
+  const [workerInviteEmails, setWorkerInviteEmails] = useState({});
+  const [invitingWorkerId, setInvitingWorkerId] = useState("");
   const [goalServiceId, setGoalServiceId] = useState("");
   const [goalRequiresDetail, setGoalRequiresDetail] = useState(false);
   const [goalRequiresPromptLevel, setGoalRequiresPromptLevel] = useState(false);
@@ -672,6 +674,58 @@ async function handleUpdateGoal() {
       .join(", ");
   }
 
+  async function handleInviteWorker(worker) {
+    const email = String(workerInviteEmails[worker.id] || worker.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!email) {
+      setMessage(`Enter an email address for ${worker.name}.`);
+      return;
+    }
+
+    setInvitingWorkerId(worker.id);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setInvitingWorkerId("");
+      setMessage("Sign in with your owner email before inviting a worker.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/invite-worker", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          workerId: worker.id,
+          email,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || "The invitation could not be sent.");
+        return;
+      }
+
+      setMessage(result.message);
+      await loadData();
+    } catch {
+      setMessage("The invitation could not be sent. Please try again.");
+    } finally {
+      setInvitingWorkerId("");
+    }
+  }
+
   if (checkingAccess) {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 500, margin: "0 auto" }}>
@@ -1304,6 +1358,49 @@ async function handleUpdateGoal() {
             >
               <div><strong>{worker.name}</strong></div>
               <div>PIN: {worker.pin}</div>
+              <div style={{ marginTop: 8 }}>
+                <strong>Account:</strong>{" "}
+                {worker.auth_user_id
+                  ? `Invitation/account linked${worker.email ? ` (${worker.email})` : ""}`
+                  : "PIN only"}
+              </div>
+              {!worker.auth_user_id && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    marginTop: 10,
+                  }}
+                >
+                  <input
+                    type="email"
+                    placeholder="Worker email"
+                    value={workerInviteEmails[worker.id] ?? worker.email ?? ""}
+                    onChange={(e) =>
+                      setWorkerInviteEmails((current) => ({
+                        ...current,
+                        [worker.id]: e.target.value,
+                      }))
+                    }
+                    style={{
+                      minWidth: 240,
+                      flex: "1 1 240px",
+                      padding: 10,
+                      fontSize: 15,
+                    }}
+                  />
+                  <button
+                    onClick={() => handleInviteWorker(worker)}
+                    disabled={invitingWorkerId === worker.id}
+                    style={{ padding: "10px 14px", fontSize: 15 }}
+                  >
+                    {invitingWorkerId === worker.id
+                      ? "Sending..."
+                      : "Save Email & Send Invitation"}
+                  </button>
+                </div>
+              )}
               <div style={{ marginTop: 8 }}>
                 <strong>Assigned Participants:</strong>{" "}
                 {getAssignedParticipantNames(worker.id) || "None"}
