@@ -12,7 +12,7 @@ export default function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("password") === "updated") {
       setMessage("Password updated. Sign in with your new password.");
-      window.history.replaceState({}, document.title, "/login");
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
 
@@ -72,8 +72,33 @@ async function handleLogin(e) {
   setMessage("This login does not have an active DreamNote role yet.");
 }
 return (
-    <div style={{ padding: 40 }}>
-      <h1>DreamNote Login</h1>
+    <main
+      style={{
+        minHeight: "100vh",
+        padding: 30,
+        fontFamily: "Arial",
+        maxWidth: 500,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+      }}
+    >
+      <div
+        style={{
+          background: "#ffffff",
+          border: "1px solid var(--dn-border)",
+          borderRadius: 18,
+          padding: 28,
+          boxShadow: "0 12px 30px rgba(31, 41, 55, 0.08)",
+        }}
+      >
+      <h1 style={{ marginTop: 0, marginBottom: 8, color: "var(--dn-primary)" }}>
+        DreamNote
+      </h1>
+      <p style={{ marginTop: 0, color: "#4b5563" }}>
+        Sign in with your email and password.
+      </p>
 
       <form onSubmit={handleLogin}>
         <div>
@@ -82,6 +107,15 @@ return (
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            style={{
+              width: "100%",
+              padding: 12,
+              fontSize: 16,
+              boxSizing: "border-box",
+              borderRadius: 10,
+              border: "1px solid var(--dn-border)",
+            }}
           />
         </div>
 
@@ -91,15 +125,56 @@ return (
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            style={{
+              width: "100%",
+              padding: 12,
+              fontSize: 16,
+              boxSizing: "border-box",
+              borderRadius: 10,
+              border: "1px solid var(--dn-border)",
+            }}
           />
         </div>
 
-        <button type="submit" style={{ marginTop: 10 }}>
+        <button
+          type="submit"
+          style={{
+            width: "100%",
+            marginTop: 14,
+            padding: "12px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+            borderRadius: 10,
+            border: "1px solid var(--dn-primary)",
+            background: "var(--dn-primary)",
+            color: "#ffffff",
+            fontWeight: 700,
+          }}
+        >
           Login
         </button>
       </form>
 
-      <p>{message}</p>
-    </div>
+      {message ? <p>{message}</p> : null}
+
+      <div
+        style={{
+          marginTop: 24,
+          paddingTop: 18,
+          borderTop: "1px solid var(--dn-border)",
+          fontSize: 14,
+          lineHeight: 1.5,
+          color: "#4b5563",
+        }}
+      >
+        <p style={{ margin: 0 }}>
+          If you do not have a username and password yet, email Bradley at{" "}
+          <a href="mailto:bradley@supportsbroker.com">bradley@supportsbroker.com</a>
+          {" "}and he will send you a setup link.
+        </p>
+      </div>
+      </div>
+    </main>
   );
 }
