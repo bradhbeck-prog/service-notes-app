@@ -4,6 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../../lib/supabase";
 
+const DEFAULT_PROMPT_LEVELS = [
+  "Independent",
+  "Verbal prompt",
+  "Gesture prompt",
+  "Modeling",
+  "Partial physical prompt",
+  "Full physical prompt",
+  "Hand-over-hand",
+];
+
+function getParticipantPromptLevels(participant) {
+  return Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
+    ? participant.prompt_levels
+    : DEFAULT_PROMPT_LEVELS;
+}
+
+
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
@@ -192,6 +209,7 @@ useEffect(() => {
     setNoteText(data.narrative || "");
     setSelectedGoals(Array.isArray(data.goals) ? data.goals.map(String) : []);
     setGoalDetails(normalizeGoalDetails(data.goal_details));
+    setPromptLevels(normalizeGoalDetails(data.prompt_levels));
     setLoadingDraft(false);
   };
 
@@ -342,6 +360,7 @@ async function handleSubmitNote() {
   narrative: noteText.trim(),
   goals: selectedGoals.map(String),
   goal_details: normalizeGoalDetails(goalDetails),
+  prompt_levels: normalizeGoalDetails(promptLevels),
   status: "submitted",
   worker_signature_mode: signatureMode,
   worker_typed_signature: typedSignature,
@@ -366,6 +385,7 @@ async function handleSubmitNote() {
       const goalRows = selectedGoals.map((goalId) => ({
         service_note_id: noteInsert.id,
         participant_goal_id: goalId,
+        prompt_level: promptLevels[goalId] || null,
       }));
 
       const { error: goalsError } = await supabase
@@ -450,6 +470,7 @@ async function handleSubmitNote() {
     setNoteText("");
     setSelectedGoals([]);
     setGoalDetails({});
+    setPromptLevels({});
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
   }
@@ -805,12 +826,11 @@ onChange={(e) => {
                                 }}
                               >
                                 <option value="">Select prompt level</option>
-                                <option value="Independent">Independent</option>
-                                <option value="Verbal prompt">Verbal prompt</option>
-                                <option value="Gesture prompt">Gesture prompt</option>
-                                <option value="Modeling">Modeling</option>
-                                <option value="Partial physical prompt">Partial physical prompt</option>
-                                <option value="Full physical prompt">Full physical prompt</option>
+                                {getParticipantPromptLevels(selectedParticipant).map((level) => (
+                                  <option key={level} value={level}>
+                                    {level}
+                                  </option>
+                                ))}
                               </select>
                             </div>
                           )}
@@ -1174,6 +1194,7 @@ async function handleSaveDraft() {
     narrative: noteText.trim(),
     goals: selectedGoals.map(String),
     goal_details: normalizeGoalDetails(goalDetails),
+    prompt_levels: normalizeGoalDetails(promptLevels),
     worker_signature_mode: signatureMode,
     worker_typed_signature: signatureMode === "typed" ? typedSignature : null,
     worker_signature_font: signatureFont,

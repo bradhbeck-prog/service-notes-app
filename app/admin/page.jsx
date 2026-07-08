@@ -3,6 +3,23 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
+const DEFAULT_PROMPT_LEVELS = [
+  "Independent",
+  "Verbal prompt",
+  "Gesture prompt",
+  "Modeling",
+  "Partial physical prompt",
+  "Full physical prompt",
+  "Hand-over-hand",
+];
+
+function getParticipantPromptLevels(participant) {
+  return Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
+    ? participant.prompt_levels
+    : DEFAULT_PROMPT_LEVELS;
+}
+
+
 export default function AdminPage() {
   const [adminPin, setAdminPin] = useState("");
   const [authorized, setAuthorized] = useState(false);
@@ -26,6 +43,7 @@ export default function AdminPage() {
   const [participantOutcomePhrase, setParticipantOutcomePhrase] = useState("");
   const [participantOutcomeStatement, setParticipantOutcomeStatement] = useState("");
   const [participantOutcomeActionPlan, setParticipantOutcomeActionPlan] = useState("");
+  const [participantPromptLevels, setParticipantPromptLevels] = useState({});
 
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
@@ -122,6 +140,7 @@ const [editingGoalId, setEditingGoalId] = useState("");
           sort_order,
           active,
           requires_detail,
+          requires_prompt_level,
           detail_prompt
         ),
         participant_services (
@@ -153,6 +172,14 @@ const [editingGoalId, setEditingGoalId] = useState("");
     setParticipants(participantRows || []);
     setAssignments(assignmentRows || []);
     setGoals(flattenedGoals);
+    setParticipantPromptLevels(
+      Object.fromEntries(
+        (participantRows || []).map((participant) => [
+          participant.id,
+          getParticipantPromptLevels(participant),
+        ])
+      )
+    );
   }
 
   async function handleAddWorker() {
@@ -518,6 +545,43 @@ async function handleDeleteGoal(goalId) {
 
   setMessage("Goal removed.");
   loadData();
+}
+async function handleSaveParticipantPromptLevels(participantId) {
+  setMessage("");
+
+  const selectedLevels = participantPromptLevels[participantId] || [];
+
+  if (selectedLevels.length === 0) {
+    setMessage("Choose at least one prompt level for this participant.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("participants")
+    .update({ prompt_levels: selectedLevels })
+    .eq("id", participantId);
+
+  if (error) {
+    setMessage(`Error saving prompt levels: ${error.message}`);
+    return;
+  }
+
+  setMessage("Prompt levels saved.");
+  loadData();
+}
+
+function toggleParticipantPromptLevel(participantId, level, checked) {
+  setParticipantPromptLevels((prev) => {
+    const current = prev[participantId] || [];
+    const next = checked
+      ? [...current, level]
+      : current.filter((item) => item !== level);
+
+    return {
+      ...prev,
+      [participantId]: next,
+    };
+  });
 }
 async function handleUpdateGoal() {
   setMessage("");
@@ -1429,6 +1493,30 @@ async function handleUpdateGoal() {
                       .join(", ")
                   : "None"}
               </div>
+              <div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 8, background: "#fafafa" }}>
+                <strong>Prompt levels for this participant:</strong>
+                <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                  {DEFAULT_PROMPT_LEVELS.map((level) => (
+                    <label key={level} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={(participantPromptLevels[participant.id] || []).includes(level)}
+                        onChange={(e) =>
+                          toggleParticipantPromptLevel(participant.id, level, e.target.checked)
+                        }
+                      />
+                      {level}
+                    </label>
+                  ))}
+                </div>
+                <button
+                  onClick={() => handleSaveParticipantPromptLevels(participant.id)}
+                  style={{ marginTop: 8 }}
+                >
+                  Save Prompt Levels
+                </button>
+              </div>
+
               <div style={{ marginTop: 8 }}>
                 <strong>Goals:</strong>
                 <ul style={{ marginTop: 6 }}>
@@ -1446,6 +1534,7 @@ async function handleUpdateGoal() {
         ? ` (${participant.participant_services?.find((s) => s.id === goal.participant_service_id)?.service_name || "Specific service"})`
         : " (All services)"}
       {goal.requires_detail ? ` — Detail prompt: ${goal.detail_prompt || "Required"}` : ""}
+      {goal.requires_prompt_level ? " — Prompt level required" : ""}
     </span>
 
     <div style={{ display: "flex", gap: 8 }}>

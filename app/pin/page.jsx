@@ -4,6 +4,23 @@ import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../../lib/supabase";
 
+const DEFAULT_PROMPT_LEVELS = [
+  "Independent",
+  "Verbal prompt",
+  "Gesture prompt",
+  "Modeling",
+  "Partial physical prompt",
+  "Full physical prompt",
+  "Hand-over-hand",
+];
+
+function getParticipantPromptLevels(participant) {
+  return Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
+    ? participant.prompt_levels
+    : DEFAULT_PROMPT_LEVELS;
+}
+
+
 function getTodayDate() {
   return new Date().toISOString().split("T")[0];
 }
@@ -37,6 +54,7 @@ export default function Page() {
   const [service, setService] = useState("");
   const [selectedGoals, setSelectedGoals] = useState([]);
 const [goalDetails, setGoalDetails] = useState({});
+const [promptLevels, setPromptLevels] = useState({});
   const [signatureMode, setSignatureMode] = useState("typed");
   const [typedSignature, setTypedSignature] = useState("");
   const [signatureFont, setSignatureFont] = useState("Pacifico");
@@ -99,6 +117,7 @@ useEffect(() => {
     setNoteText(data.narrative || "");
     setSelectedGoals(Array.isArray(data.goals) ? data.goals.map(String) : []);
     setGoalDetails(normalizeGoalDetails(data.goal_details));
+    setPromptLevels(normalizeGoalDetails(data.prompt_levels));
     setLoadingDraft(false);
   };
 
@@ -152,7 +171,8 @@ participant_goals (
   category_name,
   participant_service_id,
   detail_prompt,
-  requires_detail
+  requires_detail,
+  requires_prompt_level
 ),
         participant_services (
           id,
@@ -188,6 +208,17 @@ function getMissingGoalDetailLabels() {
     .map((goal) => goal.goal_label);
 }
 
+function getMissingPromptLevelLabels() {
+  return visibleGoals
+    .filter(
+      (goal) =>
+        selectedGoals.includes(String(goal.id)) &&
+        goal.requires_prompt_level &&
+        !String(promptLevels[String(goal.id)] || "").trim()
+    )
+    .map((goal) => goal.goal_label);
+}
+
 async function handleSubmitNote() {
     if (!worker || !selectedParticipant) {
       setMessage("Missing worker or participant");
@@ -202,6 +233,12 @@ async function handleSubmitNote() {
     const missingGoalDetails = getMissingGoalDetailLabels();
     if (missingGoalDetails.length > 0) {
       setMessage(`Please complete the detail field for: ${missingGoalDetails.join(", ")}`);
+      return;
+    }
+
+    const missingPromptLevels = getMissingPromptLevelLabels();
+    if (missingPromptLevels.length > 0) {
+      setMessage(`Please select a prompt level for: ${missingPromptLevels.join(", ")}`);
       return;
     }
 
@@ -231,6 +268,7 @@ async function handleSubmitNote() {
   narrative: noteText.trim(),
   goals: selectedGoals.map(String),
   goal_details: normalizeGoalDetails(goalDetails),
+  prompt_levels: normalizeGoalDetails(promptLevels),
   status: "submitted",
   worker_signature_mode: signatureMode,
   worker_typed_signature: typedSignature,
@@ -255,6 +293,7 @@ async function handleSubmitNote() {
       const goalRows = selectedGoals.map((goalId) => ({
         service_note_id: noteInsert.id,
         participant_goal_id: goalId,
+        prompt_level: promptLevels[goalId] || null,
       }));
 
       const { error: goalsError } = await supabase
@@ -294,6 +333,7 @@ async function handleSubmitNote() {
               .map((goal) => ({
                 ...goal,
                 detail_value: goalDetails[goal.id] || "",
+                prompt_level: promptLevels[goal.id] || "",
               })) || [],
           noteText: noteText.trim(),
           signatureMode,
@@ -338,6 +378,7 @@ async function handleSubmitNote() {
     setNoteText("");
     setSelectedGoals([]);
     setGoalDetails({});
+    setPromptLevels({});
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
   }
@@ -657,11 +698,50 @@ onChange={(e) => {
                                     delete next[goalId];
                                     return next;
                                   });
+
+                                  setPromptLevels((prev) => {
+                                    const next = { ...prev };
+                                    delete next[goalId];
+                                    return next;
+                                  });
                                 }
                               }}
                             />
                             <span>{goal.goal_label}</span>
                           </label>
+
+                          {isChecked && goal.requires_prompt_level && (
+                            <div style={{ marginTop: 10 }}>
+                              <label style={{ fontSize: 13, fontWeight: 700 }}>
+                                Prompt level
+                              </label>
+                              <select
+                                value={promptLevels[goalId] || ""}
+                                onChange={(e) =>
+                                  setPromptLevels((prev) => ({
+                                    ...prev,
+                                    [goalId]: e.target.value,
+                                  }))
+                                }
+                                style={{
+                                  width: "100%",
+                                  padding: "10px 12px",
+                                  borderRadius: 8,
+                                  border: "1px solid var(--dn-border)",
+                                  fontSize: 14,
+                                  boxSizing: "border-box",
+                                  marginTop: 6,
+                                }}
+                              >
+                                <option value="">Select prompt level</option>
+                                {getParticipantPromptLevels(selectedParticipant).map((level) => (
+                                  <option key={level} value={level}>
+                                    {level}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
 
                           {isChecked && goal.requires_detail && (
                             <div style={{ marginTop: 10 }}>
@@ -1022,6 +1102,7 @@ async function handleSaveDraft() {
     narrative: noteText.trim(),
     goals: selectedGoals.map(String),
     goal_details: normalizeGoalDetails(goalDetails),
+    prompt_levels: normalizeGoalDetails(promptLevels),
     worker_signature_mode: signatureMode,
     worker_typed_signature: signatureMode === "typed" ? typedSignature : null,
     worker_signature_font: signatureFont,
@@ -1086,6 +1167,7 @@ async function handleSaveDraft() {
     setSelectedParticipant(null);
     setNoteText("");
     setGoalDetails({});
+    setPromptLevels({});
     setShiftDate(getTodayDate());
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
