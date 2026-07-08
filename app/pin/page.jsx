@@ -6,18 +6,60 @@ import { supabase } from "../../lib/supabase";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
-  "Verbal prompt",
-  "Gesture prompt",
+  "Verbal Prompt",
+  "Gesture Prompt",
   "Modeling",
-  "Partial physical prompt",
-  "Full physical prompt",
-  "Hand-over-hand",
+  "Partial Physical Prompt",
+  "Hand Over Hand",
+  "Full Physical Prompt",
 ];
 
+const PROMPT_LEVEL_ALIASES = {
+  independent: "Independent",
+  "verbal prompt": "Verbal Prompt",
+  verbal: "Verbal Prompt",
+  "gesture prompt": "Gesture Prompt",
+  gestural: "Gesture Prompt",
+  gesture: "Gesture Prompt",
+  modeling: "Modeling",
+  model: "Modeling",
+  "partial physical prompt": "Partial Physical Prompt",
+  "partial physical": "Partial Physical Prompt",
+  pp: "Partial Physical Prompt",
+  "hand over hand": "Hand Over Hand",
+  "hand over hand prompt": "Hand Over Hand",
+  "hand-over-hand": "Hand Over Hand",
+  "hand-over-hand prompt": "Hand Over Hand",
+  hoh: "Hand Over Hand",
+  "full physical prompt": "Full Physical Prompt",
+  "full physical": "Full Physical Prompt",
+  fp: "Full Physical Prompt",
+};
+
+function normalizePromptLevel(level) {
+  const cleaned = String(level || "")
+    .trim()
+    .replace(/[–—]/g, "-")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
+
+  return PROMPT_LEVEL_ALIASES[cleaned.toLowerCase()] || cleaned;
+}
+
 function getParticipantPromptLevels(participant) {
-  return Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
+  const rawLevels = Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
     ? participant.prompt_levels
     : DEFAULT_PROMPT_LEVELS;
+
+  const normalized = rawLevels
+    .map(normalizePromptLevel)
+    .filter(Boolean)
+    .filter((level, index, levels) => levels.indexOf(level) === index);
+
+  const orderedKnownLevels = DEFAULT_PROMPT_LEVELS.filter((level) => normalized.includes(level));
+  const customLevels = normalized.filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level));
+
+  return [...orderedKnownLevels, ...customLevels];
 }
 
 

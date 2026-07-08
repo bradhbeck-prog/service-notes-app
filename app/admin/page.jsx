@@ -5,18 +5,60 @@ import { supabase } from "../../lib/supabase";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
-  "Verbal prompt",
-  "Gesture prompt",
+  "Verbal Prompt",
+  "Gesture Prompt",
   "Modeling",
-  "Partial physical prompt",
-  "Full physical prompt",
-  "Hand-over-hand",
+  "Partial Physical Prompt",
+  "Hand Over Hand",
+  "Full Physical Prompt",
 ];
 
+const PROMPT_LEVEL_ALIASES = {
+  independent: "Independent",
+  "verbal prompt": "Verbal Prompt",
+  verbal: "Verbal Prompt",
+  "gesture prompt": "Gesture Prompt",
+  gestural: "Gesture Prompt",
+  gesture: "Gesture Prompt",
+  modeling: "Modeling",
+  model: "Modeling",
+  "partial physical prompt": "Partial Physical Prompt",
+  "partial physical": "Partial Physical Prompt",
+  pp: "Partial Physical Prompt",
+  "hand over hand": "Hand Over Hand",
+  "hand over hand prompt": "Hand Over Hand",
+  "hand-over-hand": "Hand Over Hand",
+  "hand-over-hand prompt": "Hand Over Hand",
+  hoh: "Hand Over Hand",
+  "full physical prompt": "Full Physical Prompt",
+  "full physical": "Full Physical Prompt",
+  fp: "Full Physical Prompt",
+};
+
+function normalizePromptLevel(level) {
+  const cleaned = String(level || "")
+    .trim()
+    .replace(/[–—]/g, "-")
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ");
+
+  return PROMPT_LEVEL_ALIASES[cleaned.toLowerCase()] || cleaned;
+}
+
 function getParticipantPromptLevels(participant) {
-  return Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
+  const rawLevels = Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length > 0
     ? participant.prompt_levels
     : DEFAULT_PROMPT_LEVELS;
+
+  const normalized = rawLevels
+    .map(normalizePromptLevel)
+    .filter(Boolean)
+    .filter((level, index, levels) => levels.indexOf(level) === index);
+
+  const orderedKnownLevels = DEFAULT_PROMPT_LEVELS.filter((level) => normalized.includes(level));
+  const customLevels = normalized.filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level));
+
+  return [...orderedKnownLevels, ...customLevels];
 }
 
 
@@ -1239,7 +1281,7 @@ async function handleUpdateGoal() {
   </button>
 </div>
       </section>
-{editingGoalId && (
+{false && editingGoalId && (
   <section style={{ marginTop: 12, padding: 12, border: "1px solid #ccc", borderRadius: 8 }}>
     <h3>Edit Goal</h3>
 
@@ -1526,7 +1568,7 @@ async function handleUpdateGoal() {
 .map((goal) => (
   <li
     key={goal.id}
-    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}
+    style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}
   >
     <span>
       {goal.sort_order}. {goal.category_name || "Goals"}: {goal.goal_label}
@@ -1557,6 +1599,104 @@ async function handleUpdateGoal() {
         Delete
       </button>
     </div>
+
+    {editingGoalId === goal.id && (
+      <div
+        style={{
+          width: "100%",
+          marginTop: 10,
+          padding: 12,
+          border: "1px solid #ccc",
+          borderRadius: 8,
+          background: "#fff",
+        }}
+      >
+        <h4 style={{ marginTop: 0 }}>Edit Goal</h4>
+
+        <select
+          value={editGoalServiceId}
+          onChange={(e) => setEditGoalServiceId(e.target.value)}
+          style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16 }}
+        >
+          <option value="">All services</option>
+          {(participant.participant_services?.filter((s) => s.active) || []).map((service) => (
+            <option key={service.id} value={service.id}>
+              {service.service_name}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="text"
+          placeholder="Category name"
+          value={editGoalCategoryName}
+          onChange={(e) => setEditGoalCategoryName(e.target.value)}
+          style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+        />
+
+        <input
+          type="text"
+          placeholder="Goal label"
+          value={editGoalLabel}
+          onChange={(e) => setEditGoalLabel(e.target.value)}
+          style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+        />
+
+        <input
+          type="number"
+          placeholder="Sort order"
+          value={editGoalSortOrder}
+          onChange={(e) => setEditGoalSortOrder(e.target.value)}
+          style={{ display: "block", marginBottom: 8, width: 120, padding: 10, fontSize: 16 }}
+        />
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={editGoalRequiresDetail}
+            onChange={(e) => setEditGoalRequiresDetail(e.target.checked)}
+          />
+          Require detail when checked on worker page
+        </label>
+
+        {editGoalRequiresDetail && (
+          <input
+            type="text"
+            placeholder="Detail prompt"
+            value={editGoalDetailPrompt}
+            onChange={(e) => setEditGoalDetailPrompt(e.target.value)}
+            style={{ display: "block", marginBottom: 8, width: "100%", padding: 10, fontSize: 16, boxSizing: "border-box" }}
+          />
+        )}
+
+        <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={editGoalRequiresPromptLevel}
+            onChange={(e) => setEditGoalRequiresPromptLevel(e.target.checked)}
+          />
+          Require prompt level when checked on worker page
+        </label>
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={handleUpdateGoal}>Save Goal</button>
+          <button
+            onClick={() => {
+              setEditingGoalId("");
+              setEditGoalCategoryName("");
+              setEditGoalLabel("");
+              setEditGoalSortOrder("1");
+              setEditGoalServiceId("");
+              setEditGoalRequiresDetail(false);
+              setEditGoalRequiresPromptLevel(false);
+              setEditGoalDetailPrompt("");
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    )}
   </li>
 ))}
                 </ul>
