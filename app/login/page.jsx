@@ -20,8 +20,10 @@ async function handleLogin(e) {
   e.preventDefault();
   setMessage("");
 
+  const normalizedEmail = email.trim().toLowerCase();
+
   const { data: loginData, error } = await supabase.auth.signInWithPassword({
-    email,
+    email: normalizedEmail,
     password,
   });
 
