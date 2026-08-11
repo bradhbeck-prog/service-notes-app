@@ -7,6 +7,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
+  const [resetSending, setResetSending] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -15,6 +17,36 @@ export default function LoginPage() {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+async function handleRequestPasswordReset() {
+  const normalizedEmail = email.trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    setResetMessage("Enter your email address first, then tap the reset link.");
+    return;
+  }
+
+  setResetSending(true);
+  setResetMessage("");
+
+  try {
+    const response = await fetch("/api/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: normalizedEmail }),
+    });
+
+    const result = await response.json();
+    setResetMessage(
+      result.message ||
+        "If that email has an active DreamNote account, a reset link has been sent. Check spam too."
+    );
+  } catch {
+    setResetMessage("The reset request could not be sent. Please try again.");
+  } finally {
+    setResetSending(false);
+  }
+}
 
 async function handleLogin(e) {
   e.preventDefault();
@@ -160,6 +192,30 @@ return (
 
       {message ? <p>{message}</p> : null}
 
+      <button
+        type="button"
+        onClick={handleRequestPasswordReset}
+        disabled={resetSending}
+        style={{
+          marginTop: 12,
+          padding: 0,
+          border: "none",
+          background: "transparent",
+          color: "#2563eb",
+          cursor: resetSending ? "default" : "pointer",
+          fontSize: 14,
+          textDecoration: "underline",
+        }}
+      >
+        {resetSending ? "Sending reset link..." : "Forgot password or need a new setup link?"}
+      </button>
+
+      {resetMessage ? (
+        <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.4 }}>
+          {resetMessage}
+        </p>
+      ) : null}
+
       <div
         style={{
           marginTop: 24,
@@ -171,9 +227,9 @@ return (
         }}
       >
         <p style={{ margin: 0 }}>
-          If you do not have a username and password yet, email Bradley at{" "}
+          If you have not been invited to DreamNote yet, email Bradley at{" "}
           <a href="mailto:bradley@supportsbroker.com">bradley@supportsbroker.com</a>
-          {" "}and he will send you a setup link.
+          {" "}and he will add your account.
         </p>
       </div>
       </div>
