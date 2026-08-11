@@ -25,11 +25,17 @@ export async function POST(req) {
       typedSignature,
       drawnSignature,
       signatureFont,
+      dateCompleted,
+      signedAt,
+      attestationText,
     } = body;
 
     function formatDate(dateStr) {
+      if (!dateStr) return "Not set";
+      const [year, month, day] = String(dateStr).slice(0, 10).split("-");
+      if (year && month && day) return `${Number(month)}/${Number(day)}/${year}`;
       const d = new Date(dateStr);
-      return d.toLocaleDateString("en-US");
+      return Number.isNaN(d.getTime()) ? String(dateStr) : d.toLocaleDateString("en-US");
     }
 
     function formatTime(timeStr) {
@@ -47,7 +53,50 @@ export async function POST(req) {
       return (text || "Participant")
         .trim()
         .replace(/\s+/g, "-")
-        .replace(/[^a-zA-Z0-9-]/g, "");
+        .replace(/[^a-zA-Z0-9-]/g, "") || "Service";
+    }
+
+    function getParticipantInitials(name) {
+      const parts = String(name || "Participant")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      if (!parts.length) return "PR";
+
+      return parts
+        .slice(0, 3)
+        .map((part) => part[0])
+        .join("")
+        .toUpperCase();
+    }
+
+    function formatFileDate(dateStr) {
+      if (!dateStr) return "unknown-date";
+      const [year, month, day] = String(dateStr).split("-");
+      if (!year || !month || !day) return String(dateStr);
+      return `${Number(month)}-${Number(day)}-${String(year).slice(-2)}`;
+    }
+
+    function createServiceNoteFileName(participantName, shiftDate, service) {
+      const initials = getParticipantInitials(participantName);
+      const date = formatFileDate(shiftDate);
+      const servicePart = makeSafeFilenamePart(service || "Service");
+      return `${initials}-${date}-${servicePart}-Service-Note.pdf`;
+    }
+
+    function formatSignedAt(value) {
+      if (!value) return "Not set";
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return String(value);
+      return d.toLocaleString("en-US", {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      });
     }
 
     function wrapText(text, font, size, maxWidth) {
@@ -99,6 +148,8 @@ export async function POST(req) {
     }
 
     const formattedDate = formatDate(shiftDate);
+    const formattedDateCompleted = formatDate(dateCompleted);
+    const formattedSignedAt = formatSignedAt(signedAt);
     const formattedTimeIn = formatTime(timeIn);
     const formattedTimeOut = formatTime(timeOut);
 
@@ -173,7 +224,7 @@ export async function POST(req) {
     }
 
     function estimateSignatureHeight() {
-      return 70;
+      return 125;
     }
 
     function getOutcomeLayout(size) {
@@ -252,25 +303,6 @@ export async function POST(req) {
     const noteHeight = estimateNoteHeight(noteText);
     const signatureHeight = estimateSignatureHeight();
 
-    const outcomeFontCandidates = [9, 8.5, 8, 7.5, 7];
-    let outcomeLayout = getOutcomeLayout(9);
-
-    const remainingHeightAfterHeader =
-      TOP - BOTTOM - headerHeight - 20;
-
-    for (const size of outcomeFontCandidates) {
-      const testLayout = getOutcomeLayout(size);
-      const totalNeeded =
-        testLayout.totalHeight + 20 + goalsHeight + noteHeight + signatureHeight;
-
-      if (totalNeeded <= remainingHeightAfterHeader) {
-        outcomeLayout = testLayout;
-        break;
-      }
-
-      outcomeLayout = testLayout;
-    }
-
     page.drawText("Daily Service Note", {
       x: LEFT,
       y,
@@ -295,7 +327,10 @@ export async function POST(req) {
     });
 
     y -= 20;
-    page.drawText(`Date: ${formattedDate}`, { x: LEFT, y, size: 12, font });
+    page.drawText(`Date of Service: ${formattedDate}`, { x: LEFT, y, size: 12, font });
+
+    y -= 20;
+    page.drawText(`Date Completed: ${formattedDateCompleted}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
     page.drawText(`Time In: ${formattedTimeIn}`, { x: LEFT, y, size: 12, font });
@@ -318,84 +353,6 @@ export async function POST(req) {
     );
 
     y -= 20;
-
-    ensureSpace(outcomeLayout.totalHeight + 20);
-
-    const outcomeBoxTop = y + 6;
-    const outcomeBoxX = 45;
-    const outcomeBoxWidth = 520;
-
-    page.drawText("Outcome Phrase:", {
-      x: 50,
-      y,
-      size: outcomeLayout.labelSize,
-      font,
-    });
-
-    y -= 14;
-    y = drawWrappedText(
-      page,
-      outcomePhrase || "Not set",
-      70,
-      y,
-      outcomeLayout.textWidth,
-      outcomeLayout.lineHeight,
-      font,
-      outcomeLayout.textSize
-    );
-
-    y -= 8;
-    page.drawText("Outcome Statement:", {
-      x: 50,
-      y,
-      size: outcomeLayout.labelSize,
-      font,
-    });
-
-    y -= 14;
-    y = drawWrappedText(
-      page,
-      outcomeStatement || "Not set",
-      70,
-      y,
-      outcomeLayout.textWidth,
-      outcomeLayout.lineHeight,
-      font,
-      outcomeLayout.textSize
-    );
-
-    y -= 8;
-    page.drawText("Outcome Action Plan:", {
-      x: 50,
-      y,
-      size: outcomeLayout.labelSize,
-      font,
-    });
-
-    y -= 14;
-    y = drawWrappedText(
-      page,
-      outcomeActionPlan || "Not set",
-      70,
-      y,
-      outcomeLayout.textWidth,
-      outcomeLayout.lineHeight,
-      font,
-      outcomeLayout.textSize
-    );
-
-    const outcomeBoxBottom = y - 4;
-
-    page.drawRectangle({
-      x: outcomeBoxX,
-      y: outcomeBoxBottom,
-      width: outcomeBoxWidth,
-      height: outcomeBoxTop - outcomeBoxBottom + 8,
-      borderWidth: 1,
-      borderColor: rgb(0, 0, 0),
-    });
-
-    y = outcomeBoxBottom - 20;
 
     ensureSpace(goalsHeight);
 
@@ -515,27 +472,28 @@ for (const paragraphLines of noteLinesByParagraph) {
 
     y -= 30;
 
-    page.drawText(`Signature Date: ${formattedDate}`, {
+    page.drawText(`Signed: ${formattedSignedAt}`, {
       x: 50,
       y,
       size: 12,
       font,
     });
 
+    y -= 18;
+
+    const attestationLines = wrapText(
+      attestationText || "I certify that this service note accurately reflects the services I provided.",
+      font,
+      10,
+      CONTENT_WIDTH
+    );
+
+    page.drawText("Attestation:", { x: 50, y, size: 10, font: boldFont });
+    y -= 14;
+    y = drawWrappedLines(page, attestationLines, 50, y, 12, font, 10);
+
 const pages = pdfDoc.getPages();
 const totalPages = pages.length;
-
-pages.forEach((p, index) => {
-  p.drawText(
-    `${participantName} – ${formattedDate} – Page ${index + 1} of ${totalPages}`,
-    {
-      x: 50,
-      y: 20,
-      size: 9,
-      font,
-    }
-  );
-});
 
 pages.forEach((p, index) => {
   p.drawText(
@@ -559,15 +517,16 @@ pages.forEach((p, index) => {
           participantName,
           workerName,
           pdfBuffer,
+          fileName: createServiceNoteFileName(participantName, shiftDate, service),
+          shiftDate,
+          service,
         });
       } catch (emailError) {
         console.error("Email send failed:", emailError);
       }
     }
 
-    const safeParticipantName = makeSafeFilenamePart(participantName);
-    const safeShiftDate = shiftDate || "unknown-date";
-    const fileName = `${safeParticipantName}-${safeShiftDate}-Service-Note.pdf`;
+    const fileName = createServiceNoteFileName(participantName, shiftDate, service);
 
     return new Response(pdfBytes, {
       headers: {

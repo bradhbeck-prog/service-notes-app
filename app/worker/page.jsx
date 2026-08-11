@@ -75,6 +75,43 @@ function getCurrentTime() {
 }
 
 
+
+function getParticipantInitials(name) {
+  const parts = String(name || "Participant")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (!parts.length) return "PR";
+
+  return parts
+    .slice(0, 3)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
+function formatFileDate(dateStr) {
+  if (!dateStr) return "unknown-date";
+  const [year, month, day] = String(dateStr).split("-");
+  if (!year || !month || !day) return String(dateStr);
+  return `${Number(month)}-${Number(day)}-${String(year).slice(-2)}`;
+}
+
+function makeSafeFilePart(text, fallback = "Service") {
+  return String(text || fallback)
+    .trim()
+    .replace(/[^a-z0-9]+/gi, "-")
+    .replace(/^-+|-+$/g, "") || fallback;
+}
+
+function createServiceNoteFileName(participantName, shiftDate, service) {
+  const initials = getParticipantInitials(participantName);
+  const date = formatFileDate(shiftDate);
+  const servicePart = makeSafeFilePart(service, "Service");
+  return `${initials}-${date}-${servicePart}-Service-Note.pdf`;
+}
+
 function normalizeGoalDetails(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(
@@ -102,6 +139,7 @@ const [promptLevels, setPromptLevels] = useState({});
   const [signatureFont, setSignatureFont] = useState("Pacifico");
   const sigCanvasRef = useRef(null);
   const [drawnSignature, setDrawnSignature] = useState("");
+  const [signatureAttested, setSignatureAttested] = useState(false);
 const [saving, setSaving] = useState(false);
 const [currentNoteId, setCurrentNoteId] = useState(null);
 const [hasDraft, setHasDraft] = useState(false);
@@ -388,6 +426,14 @@ async function handleSubmitNote() {
       return;
     }
 
+    if (!signatureAttested) {
+      setMessage("Please certify that this service note accurately reflects the services you provided.");
+      return;
+    }
+
+    const signedAt = new Date().toISOString();
+    const dateCompleted = signedAt.slice(0, 10);
+
     setSaving(true);
     setMessage("");
 
@@ -408,6 +454,10 @@ async function handleSubmitNote() {
   worker_typed_signature: typedSignature,
   worker_signature_font: signatureFont,
   worker_signature_date: shiftDate,
+  date_completed: dateCompleted,
+  signed_at: signedAt,
+  signed_by_user_id: worker.auth_user_id || null,
+  signature_attested: true,
 };
 
     const { data: noteInsert, error } = await supabase
@@ -474,6 +524,9 @@ async function handleSubmitNote() {
           typedSignature,
           drawnSignature,
           signatureFont,
+          dateCompleted,
+          signedAt,
+          attestationText: "I certify that this service note accurately reflects the services I provided.",
         }),
       });
 
@@ -482,10 +535,7 @@ async function handleSubmitNote() {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        const safeName = selectedParticipant.name
-          .replace(/[^a-z0-9]+/gi, "-")
-          .replace(/^-+|-+$/g, "");
-        a.download = `${safeName}-${shiftDate}-Service-Note.pdf`;
+        a.download = createServiceNoteFileName(selectedParticipant.name, shiftDate, service);
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -500,6 +550,7 @@ async function handleSubmitNote() {
         }
 
         setSignatureMode("typed");
+        setSignatureAttested(false);
       } else {
         setMessage("Note saved, but PDF download failed");
       }
@@ -513,6 +564,7 @@ async function handleSubmitNote() {
     setSelectedGoals([]);
     setGoalDetails({});
     setPromptLevels({});
+    setSignatureAttested(false);
     setTimeIn(getCurrentTime());
     setTimeOut(getCurrentTime());
   }
@@ -1086,6 +1138,29 @@ onChange={(e) => {
             </div>
           </div>
         )}
+        <label
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "flex-start",
+            marginTop: 18,
+            padding: 12,
+            border: "1px solid var(--dn-border)",
+            borderRadius: 10,
+            background: "#fff",
+            lineHeight: 1.4,
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={signatureAttested}
+            onChange={(e) => setSignatureAttested(e.target.checked)}
+            style={{ marginTop: 3 }}
+          />
+          <span>
+            I certify that this service note accurately reflects the services I provided.
+          </span>
+        </label>
       </div>
 
       <div style={{ marginTop: 15, display: "flex", gap: 10, flexWrap: "wrap" }}>
