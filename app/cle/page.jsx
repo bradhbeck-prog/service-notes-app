@@ -272,9 +272,45 @@ export default function ClePortalPage() {
     window.location.href = "/login";
   }
 
+
+  const thisMonthKey = new Date().toISOString().slice(0, 7);
+  const thisMonthNotes = notes.filter((note) => String(note.shift_date || "").slice(0, 7) === thisMonthKey);
+  const cardStyle = {
+    marginTop: 18,
+    padding: 18,
+    border: "1px solid #d9e7e4",
+    borderRadius: 18,
+    background: "#ffffff",
+    boxShadow: "0 8px 24px rgba(31, 41, 55, 0.06)",
+  };
+  const statCardStyle = {
+    padding: 14,
+    border: "1px solid #d9e7e4",
+    borderRadius: 14,
+    background: "#f8fffd",
+  };
+  const primaryButtonStyle = {
+    padding: "10px 14px",
+    fontSize: 15,
+    borderRadius: 10,
+    border: "1px solid var(--dn-primary)",
+    background: "var(--dn-primary)",
+    color: "#ffffff",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+  const secondaryButtonStyle = {
+    padding: "8px 10px",
+    borderRadius: 10,
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#1f2937",
+    cursor: "pointer",
+  };
+
   if (loading) {
     return (
-      <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
+      <main style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
         <h1>DreamNote CLE Portal</h1>
         <p>Loading...</p>
       </main>
@@ -282,15 +318,26 @@ export default function ClePortalPage() {
   }
 
   return (
-    <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "center" }}>
+    <main style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          gap: 16,
+          alignItems: "flex-start",
+          padding: 18,
+          borderRadius: 22,
+          background: "linear-gradient(135deg, #f0fdfa 0%, #ffffff 70%)",
+          border: "1px solid #d9e7e4",
+        }}
+      >
         <div>
           <h1 style={{ marginBottom: 6 }}>DreamNote CLE Portal</h1>
           <p style={{ marginTop: 0, color: "#4b5563" }}>
             Review service notes and delivery preferences for your participant.
           </p>
         </div>
-        <button onClick={handleSignOut} style={{ padding: "8px 12px" }}>
+        <button onClick={handleSignOut} style={secondaryButtonStyle}>
           Sign Out
         </button>
       </div>
@@ -298,19 +345,33 @@ export default function ClePortalPage() {
       {message ? <p style={{ color: message.includes("saved") ? "#059669" : "#b45309" }}>{message}</p> : null}
 
       {!participant ? (
-        <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+        <section style={cardStyle}>
           <p>No participant is linked to this CLE login yet.</p>
         </section>
       ) : (
         <>
-          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
-            <h2 style={{ marginTop: 0 }}>{participant.name}</h2>
-            <p style={{ marginBottom: 0 }}>
+          <section style={cardStyle}>
+            <h2 style={{ marginTop: 0, marginBottom: 6 }}>{participant.name}</h2>
+            <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+              <div style={statCardStyle}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{notes.length}</div>
+                <div style={{ color: "#4b5563", fontSize: 14 }}>Submitted notes</div>
+              </div>
+              <div style={statCardStyle}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{thisMonthNotes.length}</div>
+                <div style={{ color: "#4b5563", fontSize: 14 }}>This month</div>
+              </div>
+              <div style={statCardStyle}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{assignedWorkers.length}</div>
+                <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
+              </div>
+            </div>
           </section>
 
-          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+          <section style={cardStyle}>
             <h2 style={{ marginTop: 0 }}>Assigned Workers</h2>
             {assignedWorkers.length === 0 ? (
               <p>No active workers are assigned yet.</p>
@@ -323,7 +384,7 @@ export default function ClePortalPage() {
                       padding: "8px 10px",
                       border: "1px solid #e5e7eb",
                       borderRadius: 999,
-                      background: "#fff",
+                      background: "#f8fffd",
                     }}
                   >
                     {worker.name}
@@ -333,14 +394,26 @@ export default function ClePortalPage() {
             )}
           </section>
 
-          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+          <section style={cardStyle}>
             <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
             <p style={{ color: "#4b5563" }}>
               Choose one or more ways you would like to receive service notes.
             </p>
             <div style={{ display: "grid", gap: 8 }}>
               {DELIVERY_OPTIONS.map((option) => (
-                <label key={option.value} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label
+                  key={option.value}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "center",
+                    padding: 12,
+                    border: deliveryPreferences.includes(option.value) ? "2px solid var(--dn-primary)" : "1px solid #d9e7e4",
+                    borderRadius: 12,
+                    background: deliveryPreferences.includes(option.value) ? "#ecfdf5" : "#ffffff",
+                    cursor: "pointer",
+                  }}
+                >
                   <input
                     type="checkbox"
                     checked={deliveryPreferences.includes(option.value)}
@@ -354,14 +427,14 @@ export default function ClePortalPage() {
               <button
                 onClick={handleSavePreference}
                 disabled={savingPreference}
-                style={{ padding: "10px 14px", fontSize: 15 }}
+                style={primaryButtonStyle}
               >
                 {savingPreference ? "Saving..." : "Save Preferences"}
               </button>
             </div>
           </section>
 
-          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+          <section style={cardStyle}>
             <h2 style={{ marginTop: 0 }}>Monthly Archive</h2>
             <p style={{ color: "#4b5563" }}>
               Download one combined PDF for a calendar month. Each service note starts on its own page.
@@ -373,7 +446,7 @@ export default function ClePortalPage() {
                 <select
                   value={archiveMonth}
                   onChange={(e) => setArchiveMonth(e.target.value)}
-                  style={{ padding: 10, fontSize: 16, minWidth: 220 }}
+                  style={{ padding: 10, fontSize: 16, minWidth: 220, borderRadius: 10, border: "1px solid #cbd5e1" }}
                 >
                   {archiveMonthOptions.map((month) => (
                     <option key={month} value={month}>
@@ -384,7 +457,7 @@ export default function ClePortalPage() {
                 <button
                   onClick={handleDownloadMonthlyArchive}
                   disabled={downloadingArchive}
-                  style={{ padding: "10px 14px", fontSize: 15 }}
+                  style={primaryButtonStyle}
                 >
                   {downloadingArchive ? "Preparing archive..." : "Download Monthly Archive"}
                 </button>
@@ -392,7 +465,7 @@ export default function ClePortalPage() {
             )}
           </section>
 
-          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+          <section style={cardStyle}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
             {notes.length === 0 ? (
               <p>No submitted notes yet.</p>
@@ -402,14 +475,14 @@ export default function ClePortalPage() {
                   <summary style={{ cursor: "pointer", fontWeight: 700 }}>
                     Filter notes
                   </summary>
-                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520 }}>
+                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520, padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
                     <label>
                       Date
                       <input
                         type="date"
                         value={dateFilter}
                         onChange={(e) => setDateFilter(e.target.value)}
-                        style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+                        style={{ display: "block", width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #cbd5e1" }}
                       />
                     </label>
                     {workerOptions.length > 1 && (
@@ -418,7 +491,7 @@ export default function ClePortalPage() {
                         <select
                           value={workerFilter}
                           onChange={(e) => setWorkerFilter(e.target.value)}
-                          style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+                          style={{ display: "block", width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #cbd5e1" }}
                         >
                           <option value="">All workers</option>
                           {workerOptions.map((workerName) => (
@@ -433,7 +506,7 @@ export default function ClePortalPage() {
                         <select
                           value={serviceFilter}
                           onChange={(e) => setServiceFilter(e.target.value)}
-                          style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+                          style={{ display: "block", width: "100%", padding: 8, marginTop: 4, borderRadius: 8, border: "1px solid #cbd5e1" }}
                         >
                           <option value="">All services</option>
                           {serviceOptions.map((serviceName) => (
@@ -442,14 +515,14 @@ export default function ClePortalPage() {
                         </select>
                       </label>
                     )}
-                    <button type="button" onClick={clearFilters} style={{ padding: "8px 10px", width: "fit-content" }}>
+                    <button type="button" onClick={clearFilters} style={{ ...secondaryButtonStyle, width: "fit-content" }}>
                       Clear filters
                     </button>
                   </div>
                 </details>
 
                 <p style={{ marginTop: 0, color: "#4b5563", fontSize: 14 }}>
-                  Showing {filteredNotes.length} of {notes.length} notes.
+                  Showing {filteredNotes.length} of {notes.length} notes. Scroll inside the box below to view more.
                 </p>
 
                 {filteredNotes.length === 0 ? (
@@ -461,16 +534,21 @@ export default function ClePortalPage() {
                       gap: 8,
                       maxHeight: 430,
                       overflowY: "auto",
-                      paddingRight: 4,
+                      padding: 10,
+                      border: "2px solid #cfe5df",
+                      borderRadius: 14,
+                      background: "#f8fffd",
+                      boxShadow: "inset 0 1px 8px rgba(31, 41, 55, 0.06)",
                     }}
                   >
                     {filteredNotes.map((note) => (
                       <div
                         key={note.id}
                         style={{
-                          padding: 10,
-                          border: "1px solid #e5e7eb",
-                          borderRadius: 8,
+                          padding: 12,
+                          border: "1px solid #d9e7e4",
+                          borderRadius: 12,
+                          background: "#ffffff",
                           display: "grid",
                           gap: 6,
                         }}
@@ -483,14 +561,14 @@ export default function ClePortalPage() {
                           <button
                             onClick={() => handleDownloadPdf(note, true)}
                             disabled={downloadingNoteId === note.id}
-                            style={{ padding: "7px 10px" }}
+                            style={secondaryButtonStyle}
                           >
                             View PDF
                           </button>
                           <button
                             onClick={() => handleDownloadPdf(note, false)}
                             disabled={downloadingNoteId === note.id}
-                            style={{ padding: "7px 10px" }}
+                            style={secondaryButtonStyle}
                           >
                             {downloadingNoteId === note.id ? "Preparing..." : "Download PDF"}
                           </button>
