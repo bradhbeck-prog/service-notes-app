@@ -43,6 +43,7 @@ export default function ClePortalPage() {
   const [downloadingNoteId, setDownloadingNoteId] = useState("");
   const [archiveMonth, setArchiveMonth] = useState("");
   const [downloadingArchive, setDownloadingArchive] = useState(false);
+  const [removingWorkerId, setRemovingWorkerId] = useState("");
 
   async function loadPortal() {
     setLoading(true);
@@ -88,6 +89,47 @@ export default function ClePortalPage() {
   useEffect(() => {
     loadPortal();
   }, []);
+
+  async function handleRemoveWorkerAccess(worker) {
+    const workerName = worker?.name || "this worker";
+    const confirmed = window.confirm(
+      `Remove ${workerName}'s access to ${participant?.name || "this participant"}? This will not delete the worker account or past notes.`
+    );
+
+    if (!confirmed) return;
+
+    setRemovingWorkerId(worker.id);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const response = await fetch("/api/cle/worker-access", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ workerId: worker.id }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      setMessage(result.error || "Worker access could not be removed.");
+    } else {
+      setMessage(result.message || "Worker access removed.");
+      setAssignedWorkers((current) => current.filter((item) => item.id !== worker.id));
+    }
+
+    setRemovingWorkerId("");
+  }
 
   async function handleSavePreference() {
     setSavingPreference(true);
@@ -372,26 +414,54 @@ export default function ClePortalPage() {
           </section>
 
           <section style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Assigned Workers</h2>
+            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
+            <p style={{ marginTop: 0, color: "#4b5563" }}>
+              These workers can currently open notes for {participant.name}. Removing access here only removes this participant assignment; it does not delete the worker or past notes.
+            </p>
             {assignedWorkers.length === 0 ? (
               <p>No active workers are assigned yet.</p>
             ) : (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "grid", gap: 10 }}>
                 {assignedWorkers.map((worker) => (
                   <div
                     key={worker.id || worker.name}
                     style={{
-                      padding: "8px 10px",
-                      border: "1px solid #e5e7eb",
-                      borderRadius: 999,
+                      padding: 12,
+                      border: "1px solid #d9e7e4",
+                      borderRadius: 14,
                       background: "#f8fffd",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: 12,
+                      alignItems: "center",
+                      flexWrap: "wrap",
                     }}
                   >
-                    {worker.name}
+                    <div>
+                      <strong>{worker.name}</strong>
+                      <div style={{ color: "#4b5563", fontSize: 14 }}>
+                        {worker.email ? `${worker.email} · ` : ""}Last submitted note: {formatDate(worker.last_note_date)}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveWorkerAccess(worker)}
+                      disabled={removingWorkerId === worker.id}
+                      style={{
+                        ...secondaryButtonStyle,
+                        borderColor: "#fecaca",
+                        color: "#991b1b",
+                      }}
+                    >
+                      {removingWorkerId === worker.id ? "Removing..." : "Remove Access"}
+                    </button>
                   </div>
                 ))}
               </div>
             )}
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", color: "#92400e" }}>
+              Need to add a worker? Email Bradley at bradley@supportsbroker.com for now.
+            </div>
           </section>
 
           <section style={cardStyle}>

@@ -91,6 +91,30 @@ export async function GET(request) {
     .filter((worker) => worker.active !== false)
     .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
+  const { data: workerLastNoteRows, error: workerLastNoteError } = await admin
+    .from("service_notes")
+    .select("worker_id, shift_date, created_at")
+    .eq("participant_id", participant.id)
+    .eq("status", "submitted")
+    .order("shift_date", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (workerLastNoteError) {
+    return json({ error: workerLastNoteError.message }, 500);
+  }
+
+  const lastNoteByWorker = new Map();
+  (workerLastNoteRows || []).forEach((note) => {
+    if (note.worker_id && !lastNoteByWorker.has(note.worker_id)) {
+      lastNoteByWorker.set(note.worker_id, note.shift_date);
+    }
+  });
+
+  const assignedWorkersWithActivity = assignedWorkers.map((worker) => ({
+    ...worker,
+    last_note_date: lastNoteByWorker.get(worker.id) || null,
+  }));
+
   const { data: noteRows, error: notesError } = await admin
     .from("service_notes")
     .select("id, shift_date, date_completed, signed_at, time_in, time_out, service, location, status, created_at, workers(name)")
@@ -109,7 +133,7 @@ export async function GET(request) {
       ...participant,
       note_delivery_preferences: normalizeDeliveryPreferences(participant),
     },
-    assignedWorkers,
+    assignedWorkers: assignedWorkersWithActivity,
     notes: (noteRows || []).map((note) => ({
       ...note,
       title: formatNoteTitle(note),

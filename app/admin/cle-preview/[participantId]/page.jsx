@@ -38,6 +38,7 @@ export default function AdminClePreviewPage() {
   const [participant, setParticipant] = useState(null);
   const [notes, setNotes] = useState([]);
   const [assignedWorkers, setAssignedWorkers] = useState([]);
+  const [hiddenDraftCount, setHiddenDraftCount] = useState(0);
   const [dateFilter, setDateFilter] = useState("");
   const [workerFilter, setWorkerFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
@@ -69,6 +70,7 @@ export default function AdminClePreviewPage() {
 
     setParticipant(result.participant);
     setAssignedWorkers(result.assignedWorkers || []);
+    setHiddenDraftCount(result.hiddenDraftCount || 0);
     setNotes(result.notes || []);
     setLoading(false);
   }
@@ -163,6 +165,21 @@ export default function AdminClePreviewPage() {
 
       {message ? <p style={{ color: "#b45309" }}>{message}</p> : null}
 
+      {hiddenDraftCount > 0 ? (
+        <div
+          style={{
+            marginTop: 16,
+            padding: 14,
+            borderRadius: 14,
+            background: "#fff7ed",
+            border: "1px solid #fb923c",
+            color: "#9a3412",
+          }}
+        >
+          <strong>Admin note:</strong> {hiddenDraftCount} draft note{hiddenDraftCount === 1 ? "" : "s"} with text are hidden from the CLE portal. These may be old notes that need review/recovery.
+        </div>
+      ) : null}
+
       {!participant ? (
         <section style={cardStyle}>
           <p>No participant was found for this preview.</p>
@@ -191,14 +208,28 @@ export default function AdminClePreviewPage() {
           </section>
 
           <section style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Assigned Workers</h2>
+            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
+            <p style={{ marginTop: 0, color: "#4b5563" }}>
+              Read-only admin preview. CLEs can remove a worker's access from their own portal.
+            </p>
             {assignedWorkers.length === 0 ? (
               <p>No active workers are assigned yet.</p>
             ) : (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "grid", gap: 10 }}>
                 {assignedWorkers.map((worker) => (
-                  <div key={worker.id || worker.name} style={{ padding: "8px 10px", border: "1px solid #e5e7eb", borderRadius: 999, background: "#f8fffd" }}>
-                    {worker.name}
+                  <div
+                    key={worker.id || worker.name}
+                    style={{
+                      padding: 12,
+                      border: "1px solid #d9e7e4",
+                      borderRadius: 14,
+                      background: "#f8fffd",
+                    }}
+                  >
+                    <strong>{worker.name}</strong>
+                    <div style={{ color: "#4b5563", fontSize: 14 }}>
+                      {worker.email ? `${worker.email} · ` : ""}Last submitted note: {formatDate(worker.last_note_date)}
+                    </div>
                   </div>
                 ))}
               </div>
