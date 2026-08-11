@@ -72,6 +72,8 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [workerInviteEmails, setWorkerInviteEmails] = useState({});
   const [invitingWorkerId, setInvitingWorkerId] = useState("");
+  const [resettingWorkerId, setResettingWorkerId] = useState("");
+  const [adminWorkspaceId, setAdminWorkspaceId] = useState("");
   const [goalServiceId, setGoalServiceId] = useState("");
   const [goalRequiresDetail, setGoalRequiresDetail] = useState(false);
   const [goalRequiresPromptLevel, setGoalRequiresPromptLevel] = useState(false);
@@ -137,7 +139,7 @@ const [editingGoalId, setEditingGoalId] = useState("");
 
       const { data: membership, error } = await supabase
         .from("workspace_memberships")
-        .select("role")
+        .select("workspace_id, role")
         .eq("user_id", user.id)
         .eq("active", true)
         .in("role", ["owner", "admin"])
@@ -150,6 +152,7 @@ const [editingGoalId, setEditingGoalId] = useState("");
         return;
       }
 
+      setAdminWorkspaceId(membership.workspace_id || "");
       setAuthorized(true);
       setCheckingAccess(false);
     }
@@ -323,6 +326,38 @@ const [editingGoalId, setEditingGoalId] = useState("");
     loadData();
   }
 
+  async function getWritableWorkspaceId() {
+    if (adminWorkspaceId) return adminWorkspaceId;
+
+    const { data: membership } = await supabase
+      .from("workspace_memberships")
+      .select("workspace_id")
+      .eq("active", true)
+      .in("role", ["owner", "admin"])
+      .limit(1)
+      .maybeSingle();
+
+    if (membership?.workspace_id) {
+      setAdminWorkspaceId(membership.workspace_id);
+      return membership.workspace_id;
+    }
+
+    const { data: workspace } = await supabase
+      .from("workspaces")
+      .select("id")
+      .eq("active", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (workspace?.id) {
+      setAdminWorkspaceId(workspace.id);
+      return workspace.id;
+    }
+
+    return "";
+  }
+
   async function handleAddParticipant() {
     setMessage("");
 
@@ -331,15 +366,24 @@ const [editingGoalId, setEditingGoalId] = useState("");
       return;
     }
 
+    const workspaceId = await getWritableWorkspaceId();
+
+    if (!workspaceId) {
+      setMessage("No active workspace was found. Sign in with your owner email, then try again.");
+      return;
+    }
+
     const { data: participantInsert, error: participantError } = await supabase
       .from("participants")
       .insert([
         {
+          workspace_id: workspaceId,
           name: participantName.trim(),
           cle_email: participantCleEmail.trim() || null,
           service_name: participantServiceName.trim() || null,
           outcome_phrase: participantOutcomePhrase.trim() || null,
           active: true,
+          prompt_levels: DEFAULT_PROMPT_LEVELS,
         },
       ])
       .select()
@@ -778,6 +822,50 @@ async function handleUpdateGoal() {
       .filter((participant) => participantIdsForWorker.includes(participant.id))
       .map((participant) => participant.name)
       .join(", ");
+  }
+
+  async function handleResetWorkerPassword(worker) {
+    if (!worker?.auth_user_id || !worker?.email) {
+      setMessage(`Worker account is not linked yet. Send an invitation first.`);
+      return;
+    }
+
+    setResettingWorkerId(worker.id);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setResettingWorkerId("");
+      setMessage("Sign in with your owner email before sending a password reset.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/reset-worker-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ workerId: worker.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || "The password reset email could not be sent.");
+        return;
+      }
+
+      setMessage(result.message);
+    } catch {
+      setMessage("The password reset email could not be sent. Please try again.");
+    } finally {
+      setResettingWorkerId("");
+    }
   }
 
   async function handleInviteWorker(worker) {
@@ -1504,6 +1592,19 @@ async function handleUpdateGoal() {
                     {invitingWorkerId === worker.id
                       ? "Sending..."
                       : "Save Email & Send Invitation"}
+                  </button>
+                </div>
+              )}
+              {worker.auth_user_id && worker.email && (
+                <div style={{ marginTop: 10 }}>
+                  <button
+                    onClick={() => handleResetWorkerPassword(worker)}
+                    disabled={resettingWorkerId === worker.id}
+                    style={{ padding: "10px 14px", fontSize: 15 }}
+                  >
+                    {resettingWorkerId === worker.id
+                      ? "Sending reset..."
+                      : "Send Password Reset Link"}
                   </button>
                 </div>
               )}
