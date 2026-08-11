@@ -227,9 +227,8 @@ return (
         }}
       >
         <p style={{ margin: 0 }}>
-          If you have not been invited to DreamNote yet, email Bradley at{" "}
-          <a href="mailto:bradley@supportsbroker.com">bradley@supportsbroker.com</a>
-          {" "}and he will add your account.
+          If you have any issues or need help, email Bradley at{" "}
+          <a href="mailto:bradley@supportsbroker.com">bradley@supportsbroker.com</a>.
         </p>
       </div>
       </div>
