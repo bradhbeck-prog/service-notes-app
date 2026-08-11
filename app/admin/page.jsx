@@ -870,27 +870,49 @@ async function handleUpdateGoal() {
     }
   }
 
-  async function handleUpdateParticipantDeliveryPreference(participantId, noteDeliveryPreference) {
+  async function handleUpdateParticipantDeliveryPreferences(participantId, option, checked) {
     setMessage("");
+
+    const participant = participants.find((item) => item.id === participantId);
+    const currentPreferences = Array.isArray(participant?.note_delivery_preferences)
+      && participant.note_delivery_preferences.length > 0
+      ? participant.note_delivery_preferences
+      : [participant?.note_delivery_preference || "immediate", "monthly"];
+
+    const nextPreferences = checked
+      ? [...new Set([...currentPreferences, option])]
+      : currentPreferences.filter((item) => item !== option);
+
+    if (nextPreferences.length === 0) {
+      setMessage("Choose at least one delivery option.");
+      return;
+    }
 
     const { error } = await supabase
       .from("participants")
-      .update({ note_delivery_preference: noteDeliveryPreference })
+      .update({
+        note_delivery_preference: nextPreferences[0],
+        note_delivery_preferences: nextPreferences,
+      })
       .eq("id", participantId);
 
     if (error) {
-      setMessage(`Error updating delivery preference: ${error.message}`);
+      setMessage(`Error updating delivery preferences: ${error.message}`);
       return;
     }
 
     setParticipants((current) =>
       current.map((participant) =>
         participant.id === participantId
-          ? { ...participant, note_delivery_preference: noteDeliveryPreference }
+          ? {
+              ...participant,
+              note_delivery_preference: nextPreferences[0],
+              note_delivery_preferences: nextPreferences,
+            }
           : participant
       )
     );
-    setMessage("Delivery preference updated.");
+    setMessage("Delivery preferences updated.");
   }
 
   async function handleResetWorkerPassword(worker) {
@@ -1714,20 +1736,36 @@ async function handleUpdateGoal() {
                 </button>
               )}
               <div style={{ marginTop: 10 }}>
-                <label>
-                  <strong>Delivery preference:</strong>{" "}
-                  <select
-                    value={participant.note_delivery_preference || "immediate"}
-                    onChange={(e) =>
-                      handleUpdateParticipantDeliveryPreference(participant.id, e.target.value)
-                    }
-                    style={{ padding: 6, marginLeft: 6 }}
-                  >
-                    <option value="immediate">Email each note when submitted</option>
-                    <option value="weekly">Weekly digest</option>
-                    <option value="monthly">Monthly digest only</option>
-                  </select>
-                </label>
+                <strong>Delivery preferences:</strong>
+                <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                  {[
+                    ["immediate", "Email each note when submitted"],
+                    ["weekly", "Weekly digest"],
+                    ["monthly", "Monthly archive"],
+                  ].map(([value, label]) => {
+                    const preferences = Array.isArray(participant.note_delivery_preferences)
+                      && participant.note_delivery_preferences.length > 0
+                      ? participant.note_delivery_preferences
+                      : [participant.note_delivery_preference || "immediate", "monthly"];
+
+                    return (
+                      <label key={value} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={preferences.includes(value)}
+                          onChange={(e) =>
+                            handleUpdateParticipantDeliveryPreferences(
+                              participant.id,
+                              value,
+                              e.target.checked
+                            )
+                          }
+                        />
+                        {label}
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
               <div style={{ marginTop: 8 }}>
                 <strong>Services:</strong>{" "}

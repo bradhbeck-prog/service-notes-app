@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
-const DELIVERY_LABELS = {
-  immediate: "Email each note when submitted",
-  weekly: "Weekly digest",
-  monthly: "Monthly digest only",
-};
+const DELIVERY_OPTIONS = [
+  { value: "immediate", label: "Email each note when submitted" },
+  { value: "weekly", label: "Weekly digest" },
+  { value: "monthly", label: "Monthly archive" },
+];
 
 function formatDate(value) {
   if (!value) return "Not set";
@@ -35,7 +35,8 @@ export default function ClePortalPage() {
   const [message, setMessage] = useState("");
   const [participant, setParticipant] = useState(null);
   const [notes, setNotes] = useState([]);
-  const [preference, setPreference] = useState("immediate");
+  const [deliveryPreferences, setDeliveryPreferences] = useState(["immediate", "monthly"]);
+  const [assignedWorkers, setAssignedWorkers] = useState([]);
   const [dateFilter, setDateFilter] = useState("");
   const [workerFilter, setWorkerFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
@@ -69,7 +70,13 @@ export default function ClePortalPage() {
     }
 
     setParticipant(result.participant);
-    setPreference(result.participant?.note_delivery_preference || "immediate");
+    setDeliveryPreferences(
+      Array.isArray(result.participant?.note_delivery_preferences) &&
+        result.participant.note_delivery_preferences.length > 0
+        ? result.participant.note_delivery_preferences
+        : ["immediate", "monthly"]
+    );
+    setAssignedWorkers(result.assignedWorkers || []);
     const loadedNotes = result.notes || [];
     setNotes(loadedNotes);
     if (!archiveMonth && loadedNotes[0]?.shift_date) {
@@ -101,7 +108,7 @@ export default function ClePortalPage() {
         "Content-Type": "application/json",
         Authorization: `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ noteDeliveryPreference: preference }),
+      body: JSON.stringify({ noteDeliveryPreferences: deliveryPreferences }),
     });
 
     const result = await response.json();
@@ -109,15 +116,26 @@ export default function ClePortalPage() {
     if (!response.ok) {
       setMessage(result.error || "Preference could not be saved.");
     } else {
-      setMessage(result.message || "Preference saved.");
+      setMessage(result.message || "Preferences saved.");
+      setDeliveryPreferences(result.noteDeliveryPreferences || deliveryPreferences);
       setParticipant((current) =>
-        current ? { ...current, note_delivery_preference: preference } : current
+        current
+          ? { ...current, note_delivery_preferences: result.noteDeliveryPreferences || deliveryPreferences }
+          : current
       );
     }
 
     setSavingPreference(false);
   }
 
+
+  function toggleDeliveryPreference(value, checked) {
+    setDeliveryPreferences((current) => {
+      if (checked) return [...new Set([...current, value])];
+      const next = current.filter((item) => item !== value);
+      return next.length > 0 ? next : current;
+    });
+  }
 
   const workerOptions = Array.from(
     new Set(notes.map((note) => note.workers?.name).filter(Boolean))
@@ -293,28 +311,52 @@ export default function ClePortalPage() {
           </section>
 
           <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
-            <h2 style={{ marginTop: 0 }}>Note Delivery Preference</h2>
+            <h2 style={{ marginTop: 0 }}>Assigned Workers</h2>
+            {assignedWorkers.length === 0 ? (
+              <p>No active workers are assigned yet.</p>
+            ) : (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {assignedWorkers.map((worker) => (
+                  <div
+                    key={worker.id || worker.name}
+                    style={{
+                      padding: "8px 10px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: 999,
+                      background: "#fff",
+                    }}
+                  >
+                    {worker.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+            <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
             <p style={{ color: "#4b5563" }}>
-              Choose how you would like to receive service notes. Weekly and monthly digest delivery will be added soon.
+              Choose one or more ways you would like to receive service notes.
             </p>
-            <select
-              value={preference}
-              onChange={(e) => setPreference(e.target.value)}
-              style={{ width: "100%", maxWidth: 420, padding: 10, fontSize: 16 }}
-            >
-              {Object.entries(DELIVERY_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
+            <div style={{ display: "grid", gap: 8 }}>
+              {DELIVERY_OPTIONS.map((option) => (
+                <label key={option.value} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input
+                    type="checkbox"
+                    checked={deliveryPreferences.includes(option.value)}
+                    onChange={(e) => toggleDeliveryPreference(option.value, e.target.checked)}
+                  />
+                  {option.label}
+                </label>
               ))}
-            </select>
+            </div>
             <div style={{ marginTop: 12 }}>
               <button
                 onClick={handleSavePreference}
                 disabled={savingPreference}
                 style={{ padding: "10px 14px", fontSize: 15 }}
               >
-                {savingPreference ? "Saving..." : "Save Preference"}
+                {savingPreference ? "Saving..." : "Save Preferences"}
               </button>
             </div>
           </section>
@@ -413,7 +455,15 @@ export default function ClePortalPage() {
                 {filteredNotes.length === 0 ? (
                   <p>No notes match those filters.</p>
                 ) : (
-                  <div style={{ display: "grid", gap: 8 }}>
+                  <div
+                    style={{
+                      display: "grid",
+                      gap: 8,
+                      maxHeight: 430,
+                      overflowY: "auto",
+                      paddingRight: 4,
+                    }}
+                  >
                     {filteredNotes.map((note) => (
                       <div
                         key={note.id}

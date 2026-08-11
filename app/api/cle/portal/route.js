@@ -23,6 +23,19 @@ function formatNoteTitle(note) {
   return `${date} · ${service} · ${worker}`;
 }
 
+function normalizeDeliveryPreferences(participant) {
+  if (
+    Array.isArray(participant?.note_delivery_preferences) &&
+    participant.note_delivery_preferences.length > 0
+  ) {
+    return participant.note_delivery_preferences;
+  }
+
+  if (participant?.note_delivery_preference === "weekly") return ["weekly", "monthly"];
+  if (participant?.note_delivery_preference === "monthly") return ["monthly"];
+  return ["immediate", "monthly"];
+}
+
 export async function GET(request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -57,7 +70,7 @@ export async function GET(request) {
 
   const { data: participant, error: participantError } = await admin
     .from("participants")
-    .select("id, name, cle_email, note_delivery_preference, active")
+    .select("id, name, cle_email, note_delivery_preference, note_delivery_preferences, active")
     .eq("active", true)
     .ilike("cle_email", email)
     .limit(1)
@@ -66,6 +79,17 @@ export async function GET(request) {
   if (participantError || !participant) {
     return json({ error: "No active CLE participant is linked to this login." }, 403);
   }
+
+  const { data: assignedWorkerRows } = await admin
+    .from("worker_participants")
+    .select("workers(id, name, email, active)")
+    .eq("participant_id", participant.id);
+
+  const assignedWorkers = (assignedWorkerRows || [])
+    .map((row) => row.workers)
+    .filter(Boolean)
+    .filter((worker) => worker.active !== false)
+    .sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
 
   const { data: noteRows, error: notesError } = await admin
     .from("service_notes")
@@ -81,7 +105,11 @@ export async function GET(request) {
   }
 
   return json({
-    participant,
+    participant: {
+      ...participant,
+      note_delivery_preferences: normalizeDeliveryPreferences(participant),
+    },
+    assignedWorkers,
     notes: (noteRows || []).map((note) => ({
       ...note,
       title: formatNoteTitle(note),
@@ -113,11 +141,14 @@ export async function PATCH(request) {
     return json({ error: "Invalid preference request." }, 400);
   }
 
-  const preference = String(body.noteDeliveryPreference || "").trim();
+  const preferences = Array.isArray(body.noteDeliveryPreferences)
+    ? body.noteDeliveryPreferences.map((value) => String(value).trim())
+    : [];
   const allowed = new Set(["immediate", "weekly", "monthly"]);
+  const uniquePreferences = [...new Set(preferences)].filter((value) => allowed.has(value));
 
-  if (!allowed.has(preference)) {
-    return json({ error: "Choose immediate, weekly, or monthly delivery." }, 400);
+  if (uniquePreferences.length === 0) {
+    return json({ error: "Choose at least one delivery option." }, 400);
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
@@ -149,12 +180,18 @@ export async function PATCH(request) {
 
   const { error: updateError } = await admin
     .from("participants")
-    .update({ note_delivery_preference: preference })
+    .update({
+      note_delivery_preference: uniquePreferences[0],
+      note_delivery_preferences: uniquePreferences,
+    })
     .eq("id", participant.id);
 
   if (updateError) {
     return json({ error: updateError.message }, 500);
   }
 
-  return json({ message: "Delivery preference saved.", noteDeliveryPreference: preference });
+  return json({
+    message: "Delivery preferences saved.",
+    noteDeliveryPreferences: uniquePreferences,
+  });
 }
