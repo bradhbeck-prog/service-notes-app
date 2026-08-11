@@ -1735,6 +1735,14 @@ async function handleUpdateGoal() {
                     : "Send CLE Setup Link"}
                 </button>
               )}
+              <div style={{ marginTop: 8 }}>
+                <button
+                  onClick={() => window.open(`/admin/cle-preview/${participant.id}`, "_blank", "noopener,noreferrer")}
+                  style={{ padding: "8px 12px", fontSize: 14 }}
+                >
+                  Preview CLE Portal
+                </button>
+              </div>
               <div style={{ marginTop: 10 }}>
                 <strong>Delivery preferences:</strong>
                 <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
