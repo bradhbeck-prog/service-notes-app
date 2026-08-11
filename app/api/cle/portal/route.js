@@ -9,8 +9,15 @@ function json(body, status = 200) {
   });
 }
 
+function formatShortDate(dateStr) {
+  if (!dateStr) return "No date";
+  const [year, month, day] = String(dateStr).slice(0, 10).split("-");
+  if (!year || !month || !day) return String(dateStr);
+  return `${Number(month)}-${Number(day)}-${String(year).slice(-2)}`;
+}
+
 function formatNoteTitle(note) {
-  const date = note.shift_date || "No date";
+  const date = formatShortDate(note.shift_date);
   const service = note.service || "Service";
   const worker = note.workers?.name || "Worker";
   return `${date} · ${service} · ${worker}`;

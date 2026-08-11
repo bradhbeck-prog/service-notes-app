@@ -12,7 +12,7 @@ const DELIVERY_LABELS = {
 function formatDate(value) {
   if (!value) return "Not set";
   const [year, month, day] = String(value).slice(0, 10).split("-");
-  if (year && month && day) return `${Number(month)}/${Number(day)}/${year}`;
+  if (year && month && day) return `${Number(month)}/${Number(day)}/${String(year).slice(-2)}`;
   return String(value);
 }
 
@@ -36,6 +36,10 @@ export default function ClePortalPage() {
   const [participant, setParticipant] = useState(null);
   const [notes, setNotes] = useState([]);
   const [preference, setPreference] = useState("immediate");
+  const [dateFilter, setDateFilter] = useState("");
+  const [workerFilter, setWorkerFilter] = useState("");
+  const [serviceFilter, setServiceFilter] = useState("");
+  const [downloadingNoteId, setDownloadingNoteId] = useState("");
 
   async function loadPortal() {
     setLoading(true);
@@ -108,6 +112,80 @@ export default function ClePortalPage() {
     setSavingPreference(false);
   }
 
+
+  const workerOptions = Array.from(
+    new Set(notes.map((note) => note.workers?.name).filter(Boolean))
+  ).sort();
+
+  const serviceOptions = Array.from(
+    new Set(notes.map((note) => note.service).filter(Boolean))
+  ).sort();
+
+  const filteredNotes = notes.filter((note) => {
+    if (dateFilter && note.shift_date !== dateFilter) return false;
+    if (workerFilter && note.workers?.name !== workerFilter) return false;
+    if (serviceFilter && note.service !== serviceFilter) return false;
+    return true;
+  });
+
+  function clearFilters() {
+    setDateFilter("");
+    setWorkerFilter("");
+    setServiceFilter("");
+  }
+
+  function getFileNameFromResponse(response, fallback) {
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    return match?.[1] || fallback;
+  }
+
+  async function handleDownloadPdf(note, openInNewTab = false) {
+    setDownloadingNoteId(note.id);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/cle/note-pdf/${note.id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        setMessage(errorText || "PDF could not be downloaded.");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      if (openInNewTab) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = getFileNameFromResponse(response, "Service-Note.pdf");
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      setTimeout(() => window.URL.revokeObjectURL(url), 30000);
+    } catch {
+      setMessage("PDF could not be downloaded. Please try again.");
+    } finally {
+      setDownloadingNoteId("");
+    }
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/login";
@@ -154,7 +232,7 @@ export default function ClePortalPage() {
           <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
             <h2 style={{ marginTop: 0 }}>Note Delivery Preference</h2>
             <p style={{ color: "#4b5563" }}>
-              This sets how service notes should be delivered once digest delivery is enabled.
+              Choose how you would like to receive service notes. Weekly and monthly digest delivery will be added soon.
             </p>
             <select
               value={preference}
@@ -179,34 +257,105 @@ export default function ClePortalPage() {
           </section>
 
           <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
-            <h2 style={{ marginTop: 0 }}>Submitted Service Notes</h2>
+            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
             {notes.length === 0 ? (
               <p>No submitted notes yet.</p>
             ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {notes.map((note) => (
-                  <div
-                    key={note.id}
-                    style={{ padding: 12, border: "1px solid #e5e7eb", borderRadius: 8 }}
-                  >
-                    <strong>{note.title}</strong>
-                    <div style={{ marginTop: 6, color: "#4b5563", fontSize: 14 }}>
-                      Date of service: {formatDate(note.shift_date)} · Completed: {formatDate(note.date_completed)}
-                    </div>
-                    <div style={{ marginTop: 4, color: "#4b5563", fontSize: 14 }}>
-                      Signed: {formatDateTime(note.signed_at)}
-                    </div>
-                    <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button disabled style={{ padding: "8px 10px" }}>
-                        View PDF soon
-                      </button>
-                      <button disabled style={{ padding: "8px 10px" }}>
-                        Download PDF soon
-                      </button>
-                    </div>
+              <>
+                <details style={{ marginBottom: 14 }}>
+                  <summary style={{ cursor: "pointer", fontWeight: 700 }}>
+                    Filter notes
+                  </summary>
+                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520 }}>
+                    <label>
+                      Date
+                      <input
+                        type="date"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+                      />
+                    </label>
+                    {workerOptions.length > 1 && (
+                      <label>
+                        Worker
+                        <select
+                          value={workerFilter}
+                          onChange={(e) => setWorkerFilter(e.target.value)}
+                          style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+                        >
+                          <option value="">All workers</option>
+                          {workerOptions.map((workerName) => (
+                            <option key={workerName} value={workerName}>{workerName}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    {serviceOptions.length > 1 && (
+                      <label>
+                        Service
+                        <select
+                          value={serviceFilter}
+                          onChange={(e) => setServiceFilter(e.target.value)}
+                          style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }}
+                        >
+                          <option value="">All services</option>
+                          {serviceOptions.map((serviceName) => (
+                            <option key={serviceName} value={serviceName}>{serviceName}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <button type="button" onClick={clearFilters} style={{ padding: "8px 10px", width: "fit-content" }}>
+                      Clear filters
+                    </button>
                   </div>
-                ))}
-              </div>
+                </details>
+
+                <p style={{ marginTop: 0, color: "#4b5563", fontSize: 14 }}>
+                  Showing {filteredNotes.length} of {notes.length} notes.
+                </p>
+
+                {filteredNotes.length === 0 ? (
+                  <p>No notes match those filters.</p>
+                ) : (
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {filteredNotes.map((note) => (
+                      <div
+                        key={note.id}
+                        style={{
+                          padding: 10,
+                          border: "1px solid #e5e7eb",
+                          borderRadius: 8,
+                          display: "grid",
+                          gap: 6,
+                        }}
+                      >
+                        <strong>{note.title}</strong>
+                        <div style={{ color: "#4b5563", fontSize: 14 }}>
+                          Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
+                        </div>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => handleDownloadPdf(note, true)}
+                            disabled={downloadingNoteId === note.id}
+                            style={{ padding: "7px 10px" }}
+                          >
+                            View PDF
+                          </button>
+                          <button
+                            onClick={() => handleDownloadPdf(note, false)}
+                            disabled={downloadingNoteId === note.id}
+                            style={{ padding: "7px 10px" }}
+                          >
+                            {downloadingNoteId === note.id ? "Preparing..." : "Download PDF"}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </section>
         </>
