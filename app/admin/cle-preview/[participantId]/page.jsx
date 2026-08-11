@@ -42,6 +42,7 @@ export default function AdminClePreviewPage() {
   const [dateFilter, setDateFilter] = useState("");
   const [workerFilter, setWorkerFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
+  const [downloadingNoteId, setDownloadingNoteId] = useState("");
 
   async function loadPreview() {
     setLoading(true);
@@ -97,6 +98,58 @@ export default function AdminClePreviewPage() {
     if (serviceFilter && note.service !== serviceFilter) return false;
     return true;
   });
+
+  function getFileNameFromResponse(response, fallback) {
+    const disposition = response.headers.get("content-disposition") || "";
+    const match = disposition.match(/filename="?([^";]+)"?/i);
+    return match?.[1] || fallback;
+  }
+
+  async function handleDownloadPdf(note, openInNewTab = false) {
+    setDownloadingNoteId(note.id);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/note-pdf/${note.id}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        setMessage(errorText || "PDF could not be opened.");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      if (openInNewTab) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      } else {
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = getFileNameFromResponse(response, "Service-Note.pdf");
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+
+      setTimeout(() => window.URL.revokeObjectURL(url), 30000);
+    } catch {
+      setMessage("PDF could not be opened. Please try again.");
+    } finally {
+      setDownloadingNoteId("");
+    }
+  }
 
   const thisMonthKey = new Date().toISOString().slice(0, 7);
   const thisMonthNotes = notes.filter((note) => String(note.shift_date || "").slice(0, 7) === thisMonthKey);
@@ -191,6 +244,13 @@ export default function AdminClePreviewPage() {
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
+            <button
+              type="button"
+              onClick={() => window.open(`/note-template/${participant.id}`, "_blank", "noopener,noreferrer")}
+              style={{ padding: "8px 10px", marginBottom: 12 }}
+            >
+              View Blank Service Note Template
+            </button>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <div style={statCardStyle}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{notes.length}</div>
@@ -307,8 +367,21 @@ export default function AdminClePreviewPage() {
                         <div style={{ color: "#4b5563", fontSize: 14 }}>
                           Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
                         </div>
-                        <div style={{ color: "#6b7280", fontSize: 13 }}>
-                          PDF buttons are hidden in admin preview for now. Use the CLE portal to test downloads.
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <button
+                            onClick={() => handleDownloadPdf(note, true)}
+                            disabled={downloadingNoteId === note.id}
+                            style={{ padding: "8px 10px" }}
+                          >
+                            View PDF
+                          </button>
+                          <button
+                            onClick={() => handleDownloadPdf(note, false)}
+                            disabled={downloadingNoteId === note.id}
+                            style={{ padding: "8px 10px" }}
+                          >
+                            {downloadingNoteId === note.id ? "Preparing..." : "Download PDF"}
+                          </button>
                         </div>
                       </div>
                     ))}

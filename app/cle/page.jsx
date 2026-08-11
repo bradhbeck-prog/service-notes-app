@@ -397,6 +397,13 @@ export default function ClePortalPage() {
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
+            <button
+              type="button"
+              onClick={() => window.open(`/note-template/${participant.id}`, "_blank", "noopener,noreferrer")}
+              style={{ ...secondaryButtonStyle, marginBottom: 12 }}
+            >
+              View Blank Service Note Template
+            </button>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <div style={statCardStyle}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{notes.length}</div>
