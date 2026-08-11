@@ -73,6 +73,7 @@ export default function AdminPage() {
   const [workerInviteEmails, setWorkerInviteEmails] = useState({});
   const [invitingWorkerId, setInvitingWorkerId] = useState("");
   const [resettingWorkerId, setResettingWorkerId] = useState("");
+  const [invitingCleParticipantId, setInvitingCleParticipantId] = useState("");
   const [adminWorkspaceId, setAdminWorkspaceId] = useState("");
   const [goalServiceId, setGoalServiceId] = useState("");
   const [goalRequiresDetail, setGoalRequiresDetail] = useState(false);
@@ -822,6 +823,74 @@ async function handleUpdateGoal() {
       .filter((participant) => participantIdsForWorker.includes(participant.id))
       .map((participant) => participant.name)
       .join(", ");
+  }
+
+  async function handleInviteCle(participant) {
+    if (!participant?.cle_email) {
+      setMessage(`Enter a CLE email for ${participant.name} first.`);
+      return;
+    }
+
+    setInvitingCleParticipantId(participant.id);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setInvitingCleParticipantId("");
+      setMessage("Sign in with your owner email before inviting a CLE.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/admin/invite-cle", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ participantId: participant.id }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        setMessage(result.error || "The CLE setup link could not be sent.");
+        return;
+      }
+
+      setMessage(result.message);
+      await loadData();
+    } catch {
+      setMessage("The CLE setup link could not be sent. Please try again.");
+    } finally {
+      setInvitingCleParticipantId("");
+    }
+  }
+
+  async function handleUpdateParticipantDeliveryPreference(participantId, noteDeliveryPreference) {
+    setMessage("");
+
+    const { error } = await supabase
+      .from("participants")
+      .update({ note_delivery_preference: noteDeliveryPreference })
+      .eq("id", participantId);
+
+    if (error) {
+      setMessage(`Error updating delivery preference: ${error.message}`);
+      return;
+    }
+
+    setParticipants((current) =>
+      current.map((participant) =>
+        participant.id === participantId
+          ? { ...participant, note_delivery_preference: noteDeliveryPreference }
+          : participant
+      )
+    );
+    setMessage("Delivery preference updated.");
   }
 
   async function handleResetWorkerPassword(worker) {
@@ -1627,6 +1696,39 @@ async function handleUpdateGoal() {
             >
               <div><strong>{participant.name}</strong></div>
               <div>CLE Email: {participant.cle_email || "Not set"}</div>
+              <div style={{ marginTop: 6 }}>
+                <strong>CLE Portal:</strong>{" "}
+                {participant.cle_auth_user_id
+                  ? `Setup link/account linked${participant.cle_invited_at ? ` (${new Date(participant.cle_invited_at).toLocaleDateString()})` : ""}`
+                  : "Not invited yet"}
+              </div>
+              {participant.cle_email && !participant.cle_auth_user_id && (
+                <button
+                  onClick={() => handleInviteCle(participant)}
+                  disabled={invitingCleParticipantId === participant.id}
+                  style={{ marginTop: 8, padding: "8px 12px", fontSize: 14 }}
+                >
+                  {invitingCleParticipantId === participant.id
+                    ? "Sending CLE setup link..."
+                    : "Send CLE Setup Link"}
+                </button>
+              )}
+              <div style={{ marginTop: 10 }}>
+                <label>
+                  <strong>Delivery preference:</strong>{" "}
+                  <select
+                    value={participant.note_delivery_preference || "immediate"}
+                    onChange={(e) =>
+                      handleUpdateParticipantDeliveryPreference(participant.id, e.target.value)
+                    }
+                    style={{ padding: 6, marginLeft: 6 }}
+                  >
+                    <option value="immediate">Email each note when submitted</option>
+                    <option value="weekly">Weekly digest</option>
+                    <option value="monthly">Monthly digest only</option>
+                  </select>
+                </label>
+              </div>
               <div style={{ marginTop: 8 }}>
                 <strong>Services:</strong>{" "}
                 {participant.participant_services?.length

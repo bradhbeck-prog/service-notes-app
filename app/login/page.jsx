@@ -102,6 +102,24 @@ async function handleLogin(e) {
     return;
   }
 
+  const { data: cleParticipant, error: cleError } = await supabase
+    .from("participants")
+    .select("id")
+    .ilike("cle_email", normalizedEmail)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (cleError) {
+    setMessage(cleError.message);
+    return;
+  }
+
+  if (cleParticipant) {
+    window.location.href = "/cle";
+    return;
+  }
+
   await supabase.auth.signOut();
   setMessage("This login does not have an active DreamNote role yet.");
 }

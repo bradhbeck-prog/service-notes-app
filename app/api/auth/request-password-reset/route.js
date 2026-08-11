@@ -49,7 +49,16 @@ export async function POST(request) {
     .limit(1)
     .maybeSingle();
 
-  if (!worker) {
+  const { data: cleParticipant } = await admin
+    .from("participants")
+    .select("id, cle_email, cle_auth_user_id, active")
+    .ilike("cle_email", email)
+    .eq("active", true)
+    .not("cle_auth_user_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (!worker && !cleParticipant) {
     return json({ message: GENERIC_MESSAGE });
   }
 
