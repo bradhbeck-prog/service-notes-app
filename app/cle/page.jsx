@@ -40,6 +40,8 @@ export default function ClePortalPage() {
   const [workerFilter, setWorkerFilter] = useState("");
   const [serviceFilter, setServiceFilter] = useState("");
   const [downloadingNoteId, setDownloadingNoteId] = useState("");
+  const [archiveMonth, setArchiveMonth] = useState("");
+  const [downloadingArchive, setDownloadingArchive] = useState(false);
 
   async function loadPortal() {
     setLoading(true);
@@ -68,7 +70,11 @@ export default function ClePortalPage() {
 
     setParticipant(result.participant);
     setPreference(result.participant?.note_delivery_preference || "immediate");
-    setNotes(result.notes || []);
+    const loadedNotes = result.notes || [];
+    setNotes(loadedNotes);
+    if (!archiveMonth && loadedNotes[0]?.shift_date) {
+      setArchiveMonth(String(loadedNotes[0].shift_date).slice(0, 7));
+    }
     setLoading(false);
   }
 
@@ -140,6 +146,18 @@ export default function ClePortalPage() {
     return match?.[1] || fallback;
   }
 
+  const archiveMonthOptions = Array.from(
+    new Set(notes.map((note) => String(note.shift_date || "").slice(0, 7)).filter(Boolean))
+  ).sort((a, b) => b.localeCompare(a));
+
+  function formatArchiveMonth(month) {
+    if (!month) return "";
+    const [year, monthNumber] = month.split("-");
+    const date = new Date(Date.UTC(Number(year), Number(monthNumber) - 1, 1));
+    if (Number.isNaN(date.getTime())) return month;
+    return date.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  }
+
   async function handleDownloadPdf(note, openInNewTab = false) {
     setDownloadingNoteId(note.id);
     setMessage("");
@@ -183,6 +201,51 @@ export default function ClePortalPage() {
       setMessage("PDF could not be downloaded. Please try again.");
     } finally {
       setDownloadingNoteId("");
+    }
+  }
+
+  async function handleDownloadMonthlyArchive() {
+    if (!archiveMonth) {
+      setMessage("Choose a month before downloading an archive.");
+      return;
+    }
+
+    setDownloadingArchive(true);
+    setMessage("");
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      window.location.href = "/login";
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/cle/monthly-archive?month=${encodeURIComponent(archiveMonth)}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        setMessage(errorText || "Monthly archive could not be downloaded.");
+        return;
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = getFileNameFromResponse(response, "Monthly-Service-Notes.pdf");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => window.URL.revokeObjectURL(url), 30000);
+    } catch {
+      setMessage("Monthly archive could not be downloaded. Please try again.");
+    } finally {
+      setDownloadingArchive(false);
     }
   }
 
@@ -254,6 +317,37 @@ export default function ClePortalPage() {
                 {savingPreference ? "Saving..." : "Save Preference"}
               </button>
             </div>
+          </section>
+
+          <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+            <h2 style={{ marginTop: 0 }}>Monthly Archive</h2>
+            <p style={{ color: "#4b5563" }}>
+              Download one combined PDF for a calendar month. Each service note starts on its own page.
+            </p>
+            {archiveMonthOptions.length === 0 ? (
+              <p>No submitted notes are available for an archive yet.</p>
+            ) : (
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                <select
+                  value={archiveMonth}
+                  onChange={(e) => setArchiveMonth(e.target.value)}
+                  style={{ padding: 10, fontSize: 16, minWidth: 220 }}
+                >
+                  {archiveMonthOptions.map((month) => (
+                    <option key={month} value={month}>
+                      {formatArchiveMonth(month)}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={handleDownloadMonthlyArchive}
+                  disabled={downloadingArchive}
+                  style={{ padding: "10px 14px", fontSize: 15 }}
+                >
+                  {downloadingArchive ? "Preparing archive..." : "Download Monthly Archive"}
+                </button>
+              </div>
+            )}
           </section>
 
           <section style={{ marginTop: 20, padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
