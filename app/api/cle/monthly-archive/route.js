@@ -155,6 +155,7 @@ export async function GET(request) {
       status,
       worker_signature_mode,
       worker_typed_signature,
+      worker_drawn_signature,
       worker_signature_font,
       workers(name),
       participants(
@@ -225,7 +226,7 @@ export async function GET(request) {
         noteText: note.narrative || "",
         signatureMode: note.worker_signature_mode || "typed",
         typedSignature: note.worker_typed_signature || note.workers?.name || "",
-        drawnSignature: "",
+        drawnSignature: note.worker_drawn_signature || "",
         signatureFont: note.worker_signature_font || "Pacifico",
         dateCompleted: note.date_completed,
         signedAt: note.signed_at,
