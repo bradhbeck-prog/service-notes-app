@@ -77,11 +77,24 @@ export async function POST(request) {
       .filter((name) => SERVICE_NAMES.includes(name));
     if (!selectedNames.length) return json({ error: "Choose at least one service." }, 400);
 
-    const { data: existing, error: loadError } = await admin.from("participant_services")
+    const { data: loadedServices, error: loadError } = await admin.from("participant_services")
       .select("id, service_name, active").eq("participant_id", participantId);
     if (loadError) return json({ error: loadError.message }, 400);
+    const existing = loadedServices || [];
 
-    for (const row of existing || []) {
+    // Older participants may have a generic Respite row. Reuse its ID for Day
+    // Respite so goals and historical references remain attached to the row.
+    const legacyRespite = existing.find((row) => row.service_name.trim().toLowerCase() === "respite");
+    const dayRespite = existing.find((row) => row.service_name === "Day Respite");
+    if (selectedNames.includes("Day Respite") && legacyRespite && !dayRespite) {
+      const { error } = await admin.from("participant_services")
+        .update({ service_name: "Day Respite", active: true }).eq("id", legacyRespite.id);
+      if (error) return json({ error: `Day Respite could not be saved: ${error.message}` }, 400);
+      legacyRespite.service_name = "Day Respite";
+      legacyRespite.active = true;
+    }
+
+    for (const row of existing) {
       const shouldBeActive = selectedNames.includes(row.service_name) && row.service_name.trim().toLowerCase() !== "respite";
       if (Boolean(row.active) !== shouldBeActive) {
         const { error } = await admin.from("participant_services").update({ active: shouldBeActive }).eq("id", row.id);
@@ -90,7 +103,7 @@ export async function POST(request) {
     }
 
     for (const serviceName of selectedNames) {
-      if (!(existing || []).some((row) => row.service_name === serviceName)) {
+      if (!existing.some((row) => row.service_name === serviceName)) {
         const { error } = await admin.from("participant_services")
           .insert({ participant_id: participantId, service_name: serviceName, active: true });
         if (error) return json({ error: error.message }, 400);
@@ -104,7 +117,11 @@ export async function POST(request) {
     if (selectedNames.some((name) => !verifiedNames.includes(name))) {
       return json({ error: "The services could not be verified after saving." }, 500);
     }
-    return json({ message: `Services saved for ${participant.name}.`, services: verified });
+    return json({
+      message: `Services saved for ${participant.name}: ${selectedNames.join(", ")}.`,
+      services: verified,
+      savedAt: new Date().toISOString(),
+    });
   }
 
   if (action === "save_goal") {

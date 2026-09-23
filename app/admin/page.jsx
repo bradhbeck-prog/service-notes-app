@@ -78,6 +78,7 @@ export default function AdminDashboard() {
   const [setupLink, setSetupLink] = useState("");
   const [selectedServiceNames, setSelectedServiceNames] = useState([]);
   const [savingServices, setSavingServices] = useState(false);
+  const [serviceMessage, setServiceMessage] = useState("");
   const [selectedPromptLevels, setSelectedPromptLevels] = useState(DEFAULT_PROMPT_LEVELS);
   const [savingPrompts, setSavingPrompts] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState("");
@@ -173,14 +174,17 @@ export default function AdminDashboard() {
 
   async function saveParticipantServices() {
     if (!participant) return;
-    if (!selectedServiceNames.length) return setMessage("Choose at least one service for this participant.");
-    setSavingServices(true); setMessage("");
+    if (!selectedServiceNames.length) {
+      setServiceMessage("Choose at least one service for this participant.");
+      return;
+    }
+    setSavingServices(true); setMessage(""); setServiceMessage("");
     try {
       const result = await callParticipantConfig({ action: "save_services", serviceNames: selectedServiceNames });
-      setMessage(result.message);
+      setServiceMessage(`${result.message} Saved ${new Date(result.savedAt).toLocaleString()}.`);
       await loadData();
     } catch (error) {
-      setMessage(`Could not save services: ${error.message}`);
+      setServiceMessage(`Could not save services: ${error.message}`);
     } finally {
       setSavingServices(false);
     }
@@ -396,6 +400,7 @@ export default function AdminDashboard() {
             </label>)}
           </div>
           <button onClick={saveParticipantServices} disabled={savingServices || !selectedServiceNames.length || !servicesDirty} style={{ ...button, marginTop: 14, opacity: savingServices || !selectedServiceNames.length || !servicesDirty ? .55 : 1 }}>{savingServices ? "Saving…" : servicesDirty ? "Save Services" : "Services Saved"}</button>
+          {serviceMessage && <div role="status" style={{ marginTop: 12, padding: 12, borderRadius: 8, background: serviceMessage.startsWith("Could not") ? "#fff0f0" : "#e8faf3", border: `1px solid ${serviceMessage.startsWith("Could not") ? "#d88" : C.teal}`, fontWeight: 700 }}>{serviceMessage}</div>}
           {!selectedServiceNames.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one service is required.</p>}
           {servicesDirty && selectedServiceNames.length > 0 && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", color: C.ink, fontWeight: 700 }}>Save these service changes before adding or editing goals.</p>}
         </section>
