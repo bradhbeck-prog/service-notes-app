@@ -108,15 +108,18 @@ export default function AdminDashboard() {
 
   async function loadData() {
     setLoading(true);
-    const { data: participantRows, error } = await supabase.from("participants").select(`
-      id, name, cle_email, active, service_name, workspace_id, prompt_levels,
-      participant_services (id, service_name, active),
-      participant_goals (
-        id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
-        sort_order, active, requires_detail, requires_prompt_level, detail_prompt
-      )
-    `).eq("workspace_id", workspaceId).eq("active", true).order("name");
-    if (error) { setMessage(`Could not load participants: ${error.message}`); setLoading(false); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    const participantResponse = await fetch("/api/admin/participant-config", {
+      headers: { Authorization: `Bearer ${session?.access_token || ""}` },
+      cache: "no-store",
+    });
+    const participantResult = await participantResponse.json();
+    if (!participantResponse.ok) {
+      setMessage(`Could not load participants: ${participantResult.error || "Unknown error"}`);
+      setLoading(false);
+      return;
+    }
+    const participantRows = participantResult.participants || [];
     const ids = (participantRows || []).map((row) => row.id);
     const { data: assignmentRows } = ids.length ? await supabase.from("worker_participants").select("worker_id, participant_id").in("participant_id", ids) : { data: [] };
     const { data: workerRows } = await supabase.from("workers")

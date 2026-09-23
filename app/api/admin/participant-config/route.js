@@ -14,25 +14,53 @@ function json(body, status = 200) {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-export async function POST(request) {
+async function getAdminContext(request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) return json({ error: "Participant configuration is not available." }, 500);
+  if (!supabaseUrl || !serviceRoleKey) {
+    return { response: json({ error: "Participant configuration is not available." }, 500) };
+  }
 
   const authorization = request.headers.get("authorization") || "";
   const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
-  if (!accessToken) return json({ error: "Sign in again before saving changes." }, 401);
+  if (!accessToken) return { response: json({ error: "Sign in again before continuing." }, 401) };
 
   const admin = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: { user }, error: userError } = await admin.auth.getUser(accessToken);
-  if (userError || !user) return json({ error: "Your login session is invalid or expired." }, 401);
+  if (userError || !user) return { response: json({ error: "Your login session is invalid or expired." }, 401) };
 
-  const { data: membership } = await admin.from("workspace_memberships")
+  const { data: membership, error: membershipError } = await admin.from("workspace_memberships")
     .select("workspace_id, role").eq("user_id", user.id).eq("active", true)
     .in("role", ["owner", "admin"]).limit(1).maybeSingle();
-  if (!membership) return json({ error: "You do not have permission to change participant settings." }, 403);
+  if (membershipError || !membership) {
+    return { response: json({ error: "You do not have permission to manage participant settings." }, 403) };
+  }
+  return { admin, membership };
+}
+
+export async function GET(request) {
+  const context = await getAdminContext(request);
+  if (context.response) return context.response;
+  const { admin, membership } = context;
+
+  const { data: participants, error } = await admin.from("participants").select(`
+    id, name, cle_email, active, service_name, workspace_id, prompt_levels,
+    participant_services (id, service_name, active),
+    participant_goals (
+      id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
+      sort_order, active, requires_detail, requires_prompt_level, detail_prompt
+    )
+  `).eq("workspace_id", membership.workspace_id).eq("active", true).order("name");
+  if (error) return json({ error: error.message }, 400);
+  return json({ participants: participants || [] });
+}
+
+export async function POST(request) {
+  const context = await getAdminContext(request);
+  if (context.response) return context.response;
+  const { admin, membership } = context;
 
   let body;
   try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
