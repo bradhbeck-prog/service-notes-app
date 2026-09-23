@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { sendPasswordHelpEmail } from "../../../../lib/sendEmail";
 
 export const runtime = "nodejs";
 
@@ -87,18 +88,33 @@ export async function POST(request) {
   }
 
   const redirectTo = `${new URL(request.url).origin}/reset-password`;
-  const { error: resetError } = await admin.auth.resetPasswordForEmail(worker.email, {
-    redirectTo,
+  const { data: generated, error: resetError } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email: worker.email,
+    options: { redirectTo },
   });
+  const resetLink = generated?.properties?.action_link;
 
-  if (resetError) {
+  if (resetError || !resetLink) {
     return json(
-      { error: resetError.message || "Supabase could not send the reset email." },
+      { error: resetError?.message || "A secure password link could not be created." },
       400
     );
   }
 
-  return json({
-    message: `Password reset link sent to ${worker.email}.`,
-  });
+  try {
+    await sendPasswordHelpEmail({ to: worker.email, name: worker.name, actionLink: resetLink });
+    return json({
+      message: `Password-help email sent to ${worker.email}. A backup link is available below.`,
+      resetLink,
+      emailSent: true,
+    });
+  } catch (emailError) {
+    return json({
+      message: "The secure link was created, but the email could not be delivered. Copy and send the backup link below.",
+      warning: emailError.message,
+      resetLink,
+      emailSent: false,
+    });
+  }
 }

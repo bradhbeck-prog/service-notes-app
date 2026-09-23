@@ -260,10 +260,38 @@ export default function AdminDashboard() {
   }
 
   async function resetPassword(worker) {
-    setMessage(""); setResettingId(worker.id);
-    const { data: { session } } = await supabase.auth.getSession();
-    const response = await fetch("/api/admin/reset-worker-password", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` }, body: JSON.stringify({ workerId: worker.id }) });
-    const result = await response.json(); setResettingId(""); setMessage(response.ok ? result.message : result.error || "Password reset failed.");
+    setMessage(""); setSetupLink(""); setResettingId(worker.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch("/api/admin/reset-worker-password", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` }, body: JSON.stringify({ workerId: worker.id }) });
+      const result = await response.json();
+      setMessage(response.ok ? (result.warning ? `${result.message} (${result.warning})` : result.message) : result.error || "Password help failed.");
+      if (response.ok) setSetupLink(result.resetLink || "");
+    } catch {
+      setMessage("Password help could not be sent. Please try again.");
+    } finally {
+      setResettingId("");
+    }
+  }
+
+  async function resendSetup(worker) {
+    if (!worker.email) return setMessage(`${worker.name} does not have an email address saved yet.`);
+    setMessage(""); setSetupLink(""); setResettingId(worker.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch("/api/admin/invite-worker", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+        body: JSON.stringify({ workerId: worker.id, participantId: selectedId, email: worker.email }),
+      });
+      const result = await response.json();
+      setMessage(response.ok ? (result.warning ? `${result.message} (${result.warning})` : result.message) : result.error || "Setup help failed.");
+      if (response.ok) { setSetupLink(result.setupLink || ""); await loadData(); }
+    } catch {
+      setMessage("Setup help could not be sent. Please try again.");
+    } finally {
+      setResettingId("");
+    }
   }
 
   async function signOut() { await supabase.auth.signOut(); window.location.href = "/login"; }
@@ -274,6 +302,7 @@ export default function AdminDashboard() {
   return <main style={{ maxWidth: 1180, margin: "0 auto", padding: "34px 20px 70px", color: C.ink }}>
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 26 }}><div><h1 style={{ fontSize: "clamp(34px,5vw,54px)", margin: 0 }}>DreamNote Admin</h1><p style={{ color: C.muted, fontSize: 18 }}>Manage one participant at a time, with a separate worker directory.</p></div><button onClick={signOut} style={secondary}>Sign Out</button></header>
     {message && <div role="status" style={{ padding: 14, marginBottom: 18, borderRadius: 9, background: "#fff8df", border: "1px solid #ead58a" }}>{message}</div>}
+    {setupLink && <div style={{ ...card, marginBottom: 18, background: "var(--dn-yellow-pale)", borderColor: C.yellow }}><strong>Backup access link</strong><p style={{ color: C.muted, margin: "6px 0 10px" }}>Copy this link and send it directly if the email is filtered or its button is not clickable.</p><textarea readOnly value={setupLink} rows={3} style={{ ...input, resize: "vertical" }} /><button type="button" onClick={() => navigator.clipboard.writeText(setupLink)} style={{ ...secondary, marginTop: 8 }}>Copy Link</button></div>}
     <nav style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 22 }}>
       <button onClick={() => setTab("participants")} style={{ ...secondary, ...(tab === "participants" ? { background: C.teal, color: "white" } : {}) }}>Participants</button>
       <button onClick={() => setTab("workers")} style={{ ...secondary, ...(tab === "workers" ? { background: C.teal, color: "white" } : {}) }}>Workers</button>
@@ -288,19 +317,6 @@ export default function AdminDashboard() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}`} target="_blank" style={secondary}>View Blank Note</Link></div>
         </section>
         <section style={{ ...card, marginTop: 18 }}><h2 style={{ marginTop: 0 }}>Services</h2><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{(participant.participant_services || []).filter((s) => s.active).map((s) => <span key={s.id} style={{ padding: "8px 11px", borderRadius: 20, background: C.pale, border: `1px solid ${C.border}` }}>{s.service_name}{SERVICE_CODES[s.service_name] ? ` · ${SERVICE_CODES[s.service_name]}` : ""}</span>)}{!participant.participant_services?.some((s) => s.active) && <span style={{ color: C.muted }}>{participant.service_name || "No service selected"}</span>}</div></section>
-        <section style={{ ...card, marginTop: 18 }}>
-          <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
-          <p style={{ color: C.muted, marginTop: 0 }}>Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.</p>
-          <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
-            {availablePromptLevels.map((level, index) => <label key={level} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedPromptLevels.includes(level) ? C.pink : C.border}`, background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "white", cursor: "pointer" }}>
-              <input type="checkbox" checked={selectedPromptLevels.includes(level)} onChange={() => togglePromptLevel(level)} />
-              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 27, height: 27, borderRadius: 14, background: selectedPromptLevels.includes(level) ? C.yellow : C.pale, color: C.ink, fontSize: 13, fontWeight: 800 }}>{index + 1}</span>
-              <strong>{level}</strong>
-            </label>)}
-          </div>
-          <button onClick={savePromptLevels} disabled={savingPrompts || !selectedPromptLevels.length} style={{ ...button, marginTop: 14, opacity: savingPrompts || !selectedPromptLevels.length ? .55 : 1 }}>{savingPrompts ? "Saving…" : "Save Prompt Levels"}</button>
-          {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
-        </section>
         <section id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><div><h2 style={{ margin: 0 }}>Goals</h2><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p></div><button onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={button}>Add Goal</button></div>
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
@@ -328,7 +344,20 @@ export default function AdminDashboard() {
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="submit" disabled={savingGoal} style={{ ...button, opacity: savingGoal ? .6 : 1 }}>{savingGoal ? "Saving…" : editingGoalId ? "Save Changes" : "Add Goal"}</button>{editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondary}>Cancel</button>}</div>
           </form>
         </section>
-        <section style={{ ...card, marginTop: 18 }}><h2 style={{ marginTop: 0 }}>Assigned Workers</h2>{assignedWorkers.length ? assignedWorkers.map((w) => <div key={w.id} style={{ padding: "12px 0", borderBottom: `1px solid ${C.border}` }}><strong>{w.name}</strong><div style={{ color: C.muted }}>{w.email || "No email account linked"}</div></div>) : <p style={{ color: C.muted }}>No workers assigned.</p>}<button onClick={() => { setTab("workers"); setNewWorker((current) => ({ ...current, participantId: participant.id })); }} style={{ ...button, marginTop: 14 }}>Add a Worker</button></section>
+        <section style={{ ...card, marginTop: 18 }}>
+          <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
+          <p style={{ color: C.muted, marginTop: 0 }}>Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.</p>
+          <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
+            {availablePromptLevels.map((level, index) => <label key={level} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedPromptLevels.includes(level) ? C.pink : C.border}`, background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "white", cursor: "pointer" }}>
+              <input type="checkbox" checked={selectedPromptLevels.includes(level)} onChange={() => togglePromptLevel(level)} />
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 27, height: 27, borderRadius: 14, background: selectedPromptLevels.includes(level) ? C.yellow : C.pale, color: C.ink, fontSize: 13, fontWeight: 800 }}>{index + 1}</span>
+              <strong>{level}</strong>
+            </label>)}
+          </div>
+          <button onClick={savePromptLevels} disabled={savingPrompts || !selectedPromptLevels.length} style={{ ...button, marginTop: 14, opacity: savingPrompts || !selectedPromptLevels.length ? .55 : 1 }}>{savingPrompts ? "Saving…" : "Save Prompt Levels"}</button>
+          {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
+        </section>
+        <section style={{ ...card, marginTop: 18 }}><h2 style={{ marginTop: 0 }}>Assigned Workers</h2>{assignedWorkers.length ? assignedWorkers.map((w) => <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "13px 0", borderBottom: `1px solid ${C.border}` }}><div><strong>{w.name}</strong><div style={{ color: C.muted }}>{w.email || "No email account linked"}</div><div style={{ color: w.auth_user_id ? C.teal : "#9b6500", fontSize: 13, fontWeight: 700, marginTop: 3 }}>{w.auth_user_id ? "Email/password account linked" : "Setup not completed"}</div></div>{w.email && <button onClick={() => w.auth_user_id ? resetPassword(w) : resendSetup(w)} disabled={resettingId === w.id} style={secondary}>{resettingId === w.id ? "Preparing link…" : w.auth_user_id ? "Send Password Help" : "Send Setup Link"}</button>}</div>) : <p style={{ color: C.muted }}>No workers assigned.</p>}<button onClick={() => { setTab("workers"); setNewWorker((current) => ({ ...current, participantId: participant.id })); }} style={{ ...button, marginTop: 14 }}>Add a Worker</button></section>
       </> : <p>Select a participant.</p>}</div>
     </section>}
 
