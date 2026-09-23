@@ -13,6 +13,7 @@ const SERVICE_CATALOG = [
   { name: "15-Minute Respite", code: "W9862" },
 ];
 const SERVICE_CODES = Object.fromEntries(SERVICE_CATALOG.map((service) => [service.name, service.code]));
+const HIDDEN_LEGACY_SERVICES = new Set(["respite"]);
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
   "Verbal Prompt",
@@ -134,7 +135,10 @@ export default function AdminDashboard() {
   const assignedWorkerIds = assignments.filter((a) => a.participant_id === selectedId).map((a) => a.worker_id);
   const assignedWorkers = workers.filter((w) => assignedWorkerIds.includes(w.id));
   const participantNames = (workerId) => { const ids = assignments.filter((a) => a.worker_id === workerId).map((a) => a.participant_id); return participants.filter((p) => ids.includes(p.id)).map((p) => p.name); };
-  const activeParticipantServices = (participant?.participant_services || []).filter((service) => service.active);
+  const activeParticipantServices = (participant?.participant_services || []).filter((service) => service.active && !HIDDEN_LEGACY_SERVICES.has(normalize(service.service_name)));
+  const hasActiveLegacyService = (participant?.participant_services || []).some((service) => service.active && HIDDEN_LEGACY_SERVICES.has(normalize(service.service_name)));
+  const savedServiceNames = activeParticipantServices.map((service) => service.service_name).sort();
+  const servicesDirty = hasActiveLegacyService || JSON.stringify([...selectedServiceNames].sort()) !== JSON.stringify(savedServiceNames);
 
   useEffect(() => {
     setSelectedServiceNames(activeParticipantServices.map((service) => service.service_name));
@@ -149,23 +153,34 @@ export default function AdminDashboard() {
     );
   }
 
+  async function callParticipantConfig(payload) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch("/api/admin/participant-config", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session?.access_token || ""}`,
+      },
+      body: JSON.stringify({ participantId: participant?.id, ...payload }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "The change could not be saved.");
+    return result;
+  }
+
   async function saveParticipantServices() {
     if (!participant) return;
     if (!selectedServiceNames.length) return setMessage("Choose at least one service for this participant.");
     setSavingServices(true); setMessage("");
-    const existing = participant.participant_services || [];
-    const serviceNames = [...new Set([...SERVICE_CATALOG.map((service) => service.name), ...existing.map((service) => service.service_name)])];
-    const results = await Promise.all(serviceNames.map((serviceName) => {
-      const row = existing.find((service) => service.service_name === serviceName);
-      const shouldBeActive = selectedServiceNames.includes(serviceName);
-      if (row) return supabase.from("participant_services").update({ active: shouldBeActive }).eq("id", row.id);
-      if (shouldBeActive) return supabase.from("participant_services").insert({ participant_id: participant.id, service_name: serviceName, active: true });
-      return Promise.resolve({ error: null });
-    }));
-    setSavingServices(false);
-    const failed = results.find((result) => result.error);
-    if (failed) return setMessage(`Could not save services: ${failed.error.message}`);
-    setMessage(`Services saved for ${participant.name}.`); await loadData();
+    try {
+      const result = await callParticipantConfig({ action: "save_services", serviceNames: selectedServiceNames });
+      setMessage(result.message);
+      await loadData();
+    } catch (error) {
+      setMessage(`Could not save services: ${error.message}`);
+    } finally {
+      setSavingServices(false);
+    }
   }
   const availablePromptLevels = useMemo(() => {
     const custom = participantPromptLevels(participant).filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level));
@@ -247,43 +262,39 @@ export default function AdminDashboard() {
     }
     setSavingGoal(true); setMessage("");
 
-    const existing = participant.participant_goals?.find((goal) => goal.id === editingGoalId);
-    const categoryChanged = existing && (existing.category_name || "Goals") !== categoryName;
-    const categoryGoals = (participant.participant_goals || []).filter((goal) =>
-      goal.active && goal.id !== editingGoalId && (goal.category_name || "Goals") === categoryName
-    );
-    const nextOrder = Math.max(0, ...categoryGoals.map((goal) => Number(goal.sort_order) || 0)) + 1;
-    const values = {
-      participant_id: participant.id,
-      participant_service_id: null,
-      applicable_service_ids:
-        goalDraft.serviceIds.length === activeParticipantServices.length
-          ? null
-          : goalDraft.serviceIds,
-      category_name: categoryName,
-      goal_label: goalLabel,
-      requires_detail: goalDraft.requiresDetail,
-      requires_prompt_level: goalDraft.requiresPromptLevel,
-      detail_prompt: goalDraft.requiresDetail ? goalDraft.detailPrompt.trim() || null : null,
-      active: true,
-      sort_order: !existing || categoryChanged ? nextOrder : existing.sort_order || nextOrder,
-    };
-
-    const { error } = editingGoalId
-      ? await supabase.from("participant_goals").update(values).eq("id", editingGoalId)
-      : await supabase.from("participant_goals").insert(values);
-    setSavingGoal(false);
-    if (error) return setMessage(`Could not save goal: ${error.message}`);
-    setMessage(editingGoalId ? "Goal updated." : "Goal added.");
-    clearGoalDraft(); await loadData();
+    try {
+      const result = await callParticipantConfig({
+        action: "save_goal",
+        goal: {
+          id: editingGoalId || null,
+          categoryName,
+          goalLabel,
+          serviceIds: goalDraft.serviceIds,
+          requiresDetail: goalDraft.requiresDetail,
+          requiresPromptLevel: goalDraft.requiresPromptLevel,
+          detailPrompt: goalDraft.detailPrompt,
+        },
+      });
+      setMessage(result.message);
+      clearGoalDraft();
+      await loadData();
+      window.setTimeout(() => document.getElementById("goals")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    } catch (error) {
+      setMessage(`Could not save goal: ${error.message}`);
+    } finally {
+      setSavingGoal(false);
+    }
   }
 
   async function archiveGoal(goal) {
     if (!window.confirm(`Remove “${goal.goal_label}” from the active note template?`)) return;
-    const { error } = await supabase.from("participant_goals").update({ active: false }).eq("id", goal.id);
-    if (error) return setMessage(`Could not remove goal: ${error.message}`);
-    if (editingGoalId === goal.id) clearGoalDraft();
-    setMessage("Goal removed from the active template."); await loadData();
+    try {
+      const result = await callParticipantConfig({ action: "archive_goal", goalId: goal.id });
+      if (editingGoalId === goal.id) clearGoalDraft();
+      setMessage(result.message); await loadData();
+    } catch (error) {
+      setMessage(`Could not remove goal: ${error.message}`);
+    }
   }
 
   async function moveGoal(category, goalId, direction) {
@@ -294,12 +305,12 @@ export default function AdminDashboard() {
     if (currentIndex < 0 || nextIndex < 0 || nextIndex >= group.goals.length) return;
     const reordered = [...group.goals];
     [reordered[currentIndex], reordered[nextIndex]] = [reordered[nextIndex], reordered[currentIndex]];
-    const results = await Promise.all(reordered.map((goal, index) =>
-      supabase.from("participant_goals").update({ sort_order: index + 1 }).eq("id", goal.id)
-    ));
-    const failed = results.find((result) => result.error);
-    if (failed) return setMessage(`Could not reorder goals: ${failed.error.message}`);
-    await loadData();
+    try {
+      await callParticipantConfig({ action: "reorder_goals", goalIds: reordered.map((goal) => goal.id) });
+      await loadData();
+    } catch (error) {
+      setMessage(`Could not reorder goals: ${error.message}`);
+    }
   }
 
   async function addAndInvite(event) {
@@ -375,17 +386,19 @@ export default function AdminDashboard() {
           <h2 style={{ margin: "0 0 5px" }}>Services</h2>
           <p style={{ color: C.muted, marginTop: 0 }}>Choose the services {participant.name} receives. Workers will select one of these when starting a note.</p>
           <div style={{ display: "grid", gap: 8, maxWidth: 650 }}>
-            {[...new Set([...SERVICE_CATALOG.map((service) => service.name), ...(participant.participant_services || []).map((service) => service.service_name)])].map((serviceName) => <label key={serviceName} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedServiceNames.includes(serviceName) ? C.blue : C.border}`, background: selectedServiceNames.includes(serviceName) ? "var(--dn-blue-pale)" : "white", cursor: "pointer" }}>
+            {[...new Set([...SERVICE_CATALOG.map((service) => service.name), ...(participant.participant_services || []).map((service) => service.service_name)])].filter((serviceName) => !HIDDEN_LEGACY_SERVICES.has(normalize(serviceName))).map((serviceName) => <label key={serviceName} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedServiceNames.includes(serviceName) ? C.blue : C.border}`, background: selectedServiceNames.includes(serviceName) ? "var(--dn-blue-pale)" : "white", cursor: "pointer" }}>
               <input type="checkbox" checked={selectedServiceNames.includes(serviceName)} onChange={() => toggleParticipantService(serviceName)} />
               <strong>{serviceName}</strong>
               {SERVICE_CODES[serviceName] && <span style={{ marginLeft: "auto", color: C.muted, fontWeight: 700 }}>{SERVICE_CODES[serviceName]}</span>}
             </label>)}
           </div>
-          <button onClick={saveParticipantServices} disabled={savingServices || !selectedServiceNames.length} style={{ ...button, marginTop: 14, opacity: savingServices || !selectedServiceNames.length ? .55 : 1 }}>{savingServices ? "Saving…" : "Save Services"}</button>
+          <button onClick={saveParticipantServices} disabled={savingServices || !selectedServiceNames.length || !servicesDirty} style={{ ...button, marginTop: 14, opacity: savingServices || !selectedServiceNames.length || !servicesDirty ? .55 : 1 }}>{savingServices ? "Saving…" : servicesDirty ? "Save Services" : "Services Saved"}</button>
           {!selectedServiceNames.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one service is required.</p>}
+          {servicesDirty && selectedServiceNames.length > 0 && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", color: C.ink, fontWeight: 700 }}>Save these service changes before adding or editing goals.</p>}
         </section>
         <section id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><div><h2 style={{ margin: 0 }}>Goals</h2><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p></div><button onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={button}>Add Goal</button></div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><div><h2 style={{ margin: 0 }}>Goals</h2><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p></div><button disabled={servicesDirty} onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={{ ...button, opacity: servicesDirty ? .5 : 1 }}>Add Goal</button></div>
+          {servicesDirty && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", fontWeight: 700 }}>Save the Services section above before changing goals.</p>}
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
             {groupedGoals.map((group) => <section key={group.category} style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden" }}>
               <h3 style={{ margin: 0, padding: "11px 14px", background: "#fff7cf", color: C.blue, borderLeft: `6px solid ${C.pink}` }}>{group.category}</h3>
@@ -400,7 +413,7 @@ export default function AdminDashboard() {
                   : [];
                 return <article key={goal.id} style={{ padding: 14, borderTop: index ? `1px solid ${C.border}` : "none" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}><div><strong>{goal.goal_label}</strong><div style={{ color: C.blue, fontSize: 13, fontWeight: 700, marginTop: 4 }}>{applicableIds.length ? applicableNames.join(" · ") || "No active services" : "All services"}</div>{goal.requires_prompt_level && <span style={tag}>Prompt level</span>}{goal.requires_detail && <span style={tag}>Written detail</span>}</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}><button aria-label={`Move ${goal.goal_label} up`} disabled={index === 0} onClick={() => moveGoal(group.category, goal.id, -1)} style={{ ...smallButton, opacity: index === 0 ? .4 : 1 }}>↑</button><button aria-label={`Move ${goal.goal_label} down`} disabled={index === group.goals.length - 1} onClick={() => moveGoal(group.category, goal.id, 1)} style={{ ...smallButton, opacity: index === group.goals.length - 1 ? .4 : 1 }}>↓</button><button onClick={() => editGoal(goal)} style={smallButton}>Edit</button><button onClick={() => archiveGoal(goal)} style={{ ...smallButton, color: "#9b2c2c" }}>Remove</button></div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}><button aria-label={`Move ${goal.goal_label} up`} disabled={index === 0 || servicesDirty} onClick={() => moveGoal(group.category, goal.id, -1)} style={{ ...smallButton, opacity: index === 0 || servicesDirty ? .4 : 1 }}>↑</button><button aria-label={`Move ${goal.goal_label} down`} disabled={index === group.goals.length - 1 || servicesDirty} onClick={() => moveGoal(group.category, goal.id, 1)} style={{ ...smallButton, opacity: index === group.goals.length - 1 || servicesDirty ? .4 : 1 }}>↓</button><button disabled={servicesDirty} onClick={() => editGoal(goal)} style={{ ...smallButton, opacity: servicesDirty ? .4 : 1 }}>Edit</button><button disabled={servicesDirty} onClick={() => archiveGoal(goal)} style={{ ...smallButton, color: "#9b2c2c", opacity: servicesDirty ? .4 : 1 }}>Remove</button></div>
                   </div>
                 </article>;
               })}
@@ -415,7 +428,7 @@ export default function AdminDashboard() {
             <label style={checkLabel}><input type="checkbox" checked={goalDraft.requiresPromptLevel} onChange={(e) => setGoalDraft({ ...goalDraft, requiresPromptLevel: e.target.checked })} /> Ask the worker to select a prompt level</label>
             <label style={checkLabel}><input type="checkbox" checked={goalDraft.requiresDetail} onChange={(e) => setGoalDraft({ ...goalDraft, requiresDetail: e.target.checked })} /> Ask the worker for written details</label>
             {goalDraft.requiresDetail && <Field label="Detail question"><input value={goalDraft.detailPrompt} onChange={(e) => setGoalDraft({ ...goalDraft, detailPrompt: e.target.value })} placeholder="What should the worker describe?" style={input} /></Field>}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="submit" disabled={savingGoal} style={{ ...button, opacity: savingGoal ? .6 : 1 }}>{savingGoal ? "Saving…" : editingGoalId ? "Save Changes" : "Add Goal"}</button>{editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondary}>Cancel</button>}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="submit" disabled={savingGoal || servicesDirty} style={{ ...button, opacity: savingGoal || servicesDirty ? .6 : 1 }}>{savingGoal ? "Saving…" : editingGoalId ? "Save Changes" : "Add Goal"}</button>{editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondary}>Cancel</button>}</div>
           </form>
         </section>
         <section style={{ ...card, marginTop: 18 }}>
