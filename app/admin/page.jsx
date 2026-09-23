@@ -5,7 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 
 const C = { ink: "#1f2937", muted: "#5d6878", teal: "#149f91", blue: "#2e6eae", pink: "#eb88a5", yellow: "#ffd95a", pale: "#eaf3fb", border: "#d4e2ee" };
-const SERVICE_CODES = { "In-Home and Community Supports": "W7060", "In-Home and Community Supports Enhanced": "W7061", Companion: "W1726", "Day Respite": "W9798", "15-Minute Respite": "W9862" };
+const SERVICE_CATALOG = [
+  { name: "In-Home and Community Supports", code: "W7060" },
+  { name: "In-Home and Community Supports Enhanced", code: "W7061" },
+  { name: "Companion", code: "W1726" },
+  { name: "Day Respite", code: "W9798" },
+  { name: "15-Minute Respite", code: "W9862" },
+];
+const SERVICE_CODES = Object.fromEntries(SERVICE_CATALOG.map((service) => [service.name, service.code]));
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
   "Verbal Prompt",
@@ -68,6 +75,8 @@ export default function AdminDashboard() {
   const [resettingId, setResettingId] = useState("");
   const [newWorker, setNewWorker] = useState({ name: "", email: "", participantId: "" });
   const [setupLink, setSetupLink] = useState("");
+  const [selectedServiceNames, setSelectedServiceNames] = useState([]);
+  const [savingServices, setSavingServices] = useState(false);
   const [selectedPromptLevels, setSelectedPromptLevels] = useState(DEFAULT_PROMPT_LEVELS);
   const [savingPrompts, setSavingPrompts] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState("");
@@ -75,7 +84,7 @@ export default function AdminDashboard() {
   const [goalDraft, setGoalDraft] = useState({
     categoryName: "",
     goalLabel: "",
-    serviceId: "",
+    serviceIds: [],
     requiresDetail: false,
     requiresPromptLevel: false,
     detailPrompt: "",
@@ -102,7 +111,7 @@ export default function AdminDashboard() {
       id, name, cle_email, active, service_name, workspace_id, prompt_levels,
       participant_services (id, service_name, active),
       participant_goals (
-        id, participant_id, participant_service_id, goal_label, category_name,
+        id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
         sort_order, active, requires_detail, requires_prompt_level, detail_prompt
       )
     `).eq("workspace_id", workspaceId).eq("active", true).order("name");
@@ -125,6 +134,39 @@ export default function AdminDashboard() {
   const assignedWorkerIds = assignments.filter((a) => a.participant_id === selectedId).map((a) => a.worker_id);
   const assignedWorkers = workers.filter((w) => assignedWorkerIds.includes(w.id));
   const participantNames = (workerId) => { const ids = assignments.filter((a) => a.worker_id === workerId).map((a) => a.participant_id); return participants.filter((p) => ids.includes(p.id)).map((p) => p.name); };
+  const activeParticipantServices = (participant?.participant_services || []).filter((service) => service.active);
+
+  useEffect(() => {
+    setSelectedServiceNames(activeParticipantServices.map((service) => service.service_name));
+    if (!editingGoalId) {
+      setGoalDraft((current) => ({ ...current, serviceIds: activeParticipantServices.map((service) => service.id) }));
+    }
+  }, [selectedId, participant?.participant_services]);
+
+  function toggleParticipantService(serviceName) {
+    setSelectedServiceNames((current) =>
+      current.includes(serviceName) ? current.filter((name) => name !== serviceName) : [...current, serviceName]
+    );
+  }
+
+  async function saveParticipantServices() {
+    if (!participant) return;
+    if (!selectedServiceNames.length) return setMessage("Choose at least one service for this participant.");
+    setSavingServices(true); setMessage("");
+    const existing = participant.participant_services || [];
+    const serviceNames = [...new Set([...SERVICE_CATALOG.map((service) => service.name), ...existing.map((service) => service.service_name)])];
+    const results = await Promise.all(serviceNames.map((serviceName) => {
+      const row = existing.find((service) => service.service_name === serviceName);
+      const shouldBeActive = selectedServiceNames.includes(serviceName);
+      if (row) return supabase.from("participant_services").update({ active: shouldBeActive }).eq("id", row.id);
+      if (shouldBeActive) return supabase.from("participant_services").insert({ participant_id: participant.id, service_name: serviceName, active: true });
+      return Promise.resolve({ error: null });
+    }));
+    setSavingServices(false);
+    const failed = results.find((result) => result.error);
+    if (failed) return setMessage(`Could not save services: ${failed.error.message}`);
+    setMessage(`Services saved for ${participant.name}.`); await loadData();
+  }
   const availablePromptLevels = useMemo(() => {
     const custom = participantPromptLevels(participant).filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level));
     return [...DEFAULT_PROMPT_LEVELS, ...custom];
@@ -173,15 +215,21 @@ export default function AdminDashboard() {
 
   function clearGoalDraft() {
     setEditingGoalId("");
-    setGoalDraft({ categoryName: "", goalLabel: "", serviceId: "", requiresDetail: false, requiresPromptLevel: false, detailPrompt: "" });
+    setGoalDraft({ categoryName: "", goalLabel: "", serviceIds: activeParticipantServices.map((service) => service.id), requiresDetail: false, requiresPromptLevel: false, detailPrompt: "" });
   }
 
   function editGoal(goal) {
     setEditingGoalId(goal.id);
+    const activeServiceIds = activeParticipantServices.map((service) => service.id);
+    const storedServiceIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
+      ? goal.applicable_service_ids
+      : goal.participant_service_id
+        ? [goal.participant_service_id]
+        : activeServiceIds;
     setGoalDraft({
       categoryName: goal.category_name || "Goals",
       goalLabel: goal.goal_label || "",
-      serviceId: goal.participant_service_id || "",
+      serviceIds: storedServiceIds.filter((id) => activeServiceIds.includes(id)),
       requiresDetail: Boolean(goal.requires_detail),
       requiresPromptLevel: Boolean(goal.requires_prompt_level),
       detailPrompt: goal.detail_prompt || "",
@@ -194,6 +242,9 @@ export default function AdminDashboard() {
     const categoryName = goalDraft.categoryName.trim() || "Goals";
     const goalLabel = goalDraft.goalLabel.trim();
     if (!participant || !goalLabel) return setMessage("Enter the goal description.");
+    if (activeParticipantServices.length && !goalDraft.serviceIds.length) {
+      return setMessage("Choose at least one service for this goal.");
+    }
     setSavingGoal(true); setMessage("");
 
     const existing = participant.participant_goals?.find((goal) => goal.id === editingGoalId);
@@ -204,7 +255,11 @@ export default function AdminDashboard() {
     const nextOrder = Math.max(0, ...categoryGoals.map((goal) => Number(goal.sort_order) || 0)) + 1;
     const values = {
       participant_id: participant.id,
-      participant_service_id: goalDraft.serviceId || null,
+      participant_service_id: null,
+      applicable_service_ids:
+        goalDraft.serviceIds.length === activeParticipantServices.length
+          ? null
+          : goalDraft.serviceIds,
       category_name: categoryName,
       goal_label: goalLabel,
       requires_detail: goalDraft.requiresDetail,
@@ -316,16 +371,35 @@ export default function AdminDashboard() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, margin: "20px 0" }}><Summary value={assignedWorkers.length} label="Assigned workers" /><Summary value={(participant.participant_goals || []).filter((g) => g.active).length} label="Active goals" /><Summary value={(participant.participant_services || []).filter((s) => s.active).length || (participant.service_name ? 1 : 0)} label="Services" /></div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}`} target="_blank" style={secondary}>View Blank Note</Link></div>
         </section>
-        <section style={{ ...card, marginTop: 18 }}><h2 style={{ marginTop: 0 }}>Services</h2><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{(participant.participant_services || []).filter((s) => s.active).map((s) => <span key={s.id} style={{ padding: "8px 11px", borderRadius: 20, background: C.pale, border: `1px solid ${C.border}` }}>{s.service_name}{SERVICE_CODES[s.service_name] ? ` · ${SERVICE_CODES[s.service_name]}` : ""}</span>)}{!participant.participant_services?.some((s) => s.active) && <span style={{ color: C.muted }}>{participant.service_name || "No service selected"}</span>}</div></section>
+        <section style={{ ...card, marginTop: 18 }}>
+          <h2 style={{ margin: "0 0 5px" }}>Services</h2>
+          <p style={{ color: C.muted, marginTop: 0 }}>Choose the services {participant.name} receives. Workers will select one of these when starting a note.</p>
+          <div style={{ display: "grid", gap: 8, maxWidth: 650 }}>
+            {[...new Set([...SERVICE_CATALOG.map((service) => service.name), ...(participant.participant_services || []).map((service) => service.service_name)])].map((serviceName) => <label key={serviceName} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedServiceNames.includes(serviceName) ? C.blue : C.border}`, background: selectedServiceNames.includes(serviceName) ? "var(--dn-blue-pale)" : "white", cursor: "pointer" }}>
+              <input type="checkbox" checked={selectedServiceNames.includes(serviceName)} onChange={() => toggleParticipantService(serviceName)} />
+              <strong>{serviceName}</strong>
+              {SERVICE_CODES[serviceName] && <span style={{ marginLeft: "auto", color: C.muted, fontWeight: 700 }}>{SERVICE_CODES[serviceName]}</span>}
+            </label>)}
+          </div>
+          <button onClick={saveParticipantServices} disabled={savingServices || !selectedServiceNames.length} style={{ ...button, marginTop: 14, opacity: savingServices || !selectedServiceNames.length ? .55 : 1 }}>{savingServices ? "Saving…" : "Save Services"}</button>
+          {!selectedServiceNames.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one service is required.</p>}
+        </section>
         <section id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><div><h2 style={{ margin: 0 }}>Goals</h2><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p></div><button onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={button}>Add Goal</button></div>
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
             {groupedGoals.map((group) => <section key={group.category} style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden" }}>
               <h3 style={{ margin: 0, padding: "11px 14px", background: "#fff7cf", color: C.blue, borderLeft: `6px solid ${C.pink}` }}>{group.category}</h3>
               {group.goals.map((goal, index) => {
-                const service = participant.participant_services?.find((item) => item.id === goal.participant_service_id);
+                const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
+                  ? goal.applicable_service_ids
+                  : goal.participant_service_id
+                    ? [goal.participant_service_id]
+                    : [];
+                const applicableNames = applicableIds.length
+                  ? (participant.participant_services || []).filter((service) => applicableIds.includes(service.id)).map((service) => service.service_name)
+                  : [];
                 return <article key={goal.id} style={{ padding: 14, borderTop: index ? `1px solid ${C.border}` : "none" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}><div><strong>{goal.goal_label}</strong>{service && <div style={{ color: C.muted, fontSize: 14, marginTop: 3 }}>{service.service_name}</div>}{goal.requires_prompt_level && <span style={tag}>Prompt level</span>}{goal.requires_detail && <span style={tag}>Written detail</span>}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}><div><strong>{goal.goal_label}</strong><div style={{ color: C.blue, fontSize: 13, fontWeight: 700, marginTop: 4 }}>{applicableIds.length ? applicableNames.join(" · ") || "No active services" : "All services"}</div>{goal.requires_prompt_level && <span style={tag}>Prompt level</span>}{goal.requires_detail && <span style={tag}>Written detail</span>}</div>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}><button aria-label={`Move ${goal.goal_label} up`} disabled={index === 0} onClick={() => moveGoal(group.category, goal.id, -1)} style={{ ...smallButton, opacity: index === 0 ? .4 : 1 }}>↑</button><button aria-label={`Move ${goal.goal_label} down`} disabled={index === group.goals.length - 1} onClick={() => moveGoal(group.category, goal.id, 1)} style={{ ...smallButton, opacity: index === group.goals.length - 1 ? .4 : 1 }}>↓</button><button onClick={() => editGoal(goal)} style={smallButton}>Edit</button><button onClick={() => archiveGoal(goal)} style={{ ...smallButton, color: "#9b2c2c" }}>Remove</button></div>
                   </div>
                 </article>;
@@ -337,7 +411,7 @@ export default function AdminDashboard() {
           <form id="goal-editor" onSubmit={saveGoal} style={{ marginTop: 20, padding: 18, borderRadius: 11, background: C.pale, scrollMarginTop: 20 }}>
             <h3 style={{ marginTop: 0 }}>{editingGoalId ? "Edit Goal" : "Add Goal"}</h3>
             <div className="goal-fields"><Field label="Category"><input value={goalDraft.categoryName} onChange={(e) => setGoalDraft({ ...goalDraft, categoryName: e.target.value })} placeholder="Example: Community Activities" style={input} /></Field><Field label="Goal"><textarea value={goalDraft.goalLabel} onChange={(e) => setGoalDraft({ ...goalDraft, goalLabel: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field></div>
-            {(participant.participant_services || []).filter((service) => service.active).length > 1 && <Field label="Service"><select value={goalDraft.serviceId} onChange={(e) => setGoalDraft({ ...goalDraft, serviceId: e.target.value })} style={input}><option value="">All services</option>{participant.participant_services.filter((service) => service.active).map((service) => <option key={service.id} value={service.id}>{service.service_name}</option>)}</select></Field>}
+            {activeParticipantServices.length > 0 && <fieldset style={{ margin: "0 0 14px", padding: 14, borderRadius: 9, border: `1px solid ${C.border}` }}><legend style={{ fontWeight: 800 }}>Services for this goal</legend><p style={{ color: C.muted, marginTop: 0 }}>All services are selected by default. Uncheck any service where this goal should not appear.</p><div style={{ display: "grid", gap: 8 }}>{activeParticipantServices.map((service) => <label key={service.id} style={{ display: "flex", alignItems: "center", gap: 9 }}><input type="checkbox" checked={goalDraft.serviceIds.includes(service.id)} onChange={(e) => setGoalDraft({ ...goalDraft, serviceIds: e.target.checked ? [...goalDraft.serviceIds, service.id] : goalDraft.serviceIds.filter((id) => id !== service.id) })} /><span>{service.service_name}{SERVICE_CODES[service.service_name] ? ` · ${SERVICE_CODES[service.service_name]}` : ""}</span></label>)}</div>{!goalDraft.serviceIds.length && <p style={{ color: "#9b2c2c", fontWeight: 700, marginBottom: 0 }}>Choose at least one service.</p>}</fieldset>}
             <label style={checkLabel}><input type="checkbox" checked={goalDraft.requiresPromptLevel} onChange={(e) => setGoalDraft({ ...goalDraft, requiresPromptLevel: e.target.checked })} /> Ask the worker to select a prompt level</label>
             <label style={checkLabel}><input type="checkbox" checked={goalDraft.requiresDetail} onChange={(e) => setGoalDraft({ ...goalDraft, requiresDetail: e.target.checked })} /> Ask the worker for written details</label>
             {goalDraft.requiresDetail && <Field label="Detail question"><input value={goalDraft.detailPrompt} onChange={(e) => setGoalDraft({ ...goalDraft, detailPrompt: e.target.value })} placeholder="What should the worker describe?" style={input} /></Field>}

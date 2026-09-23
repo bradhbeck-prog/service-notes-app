@@ -177,6 +177,7 @@ const [editingGoalId, setEditingGoalId] = useState("");
           id,
           participant_id,
           participant_service_id,
+          applicable_service_ids,
           goal_label,
           category_name,
           sort_order,
@@ -535,7 +536,8 @@ async function handleAddGoal() {
   const { error } = await supabase.from("participant_goals").insert([
     {
       participant_id: goalParticipantId,
-      participant_service_id: goalServiceId || null,
+      participant_service_id: null,
+      applicable_service_ids: goalServiceId ? [goalServiceId] : null,
       category_name: categoryToUse,
       goal_label: goalLabel.trim(),
       sort_order: Number(goalSortOrder) || 1,
@@ -627,7 +629,8 @@ async function handleUpdateGoal() {
   const { error } = await supabase
     .from("participant_goals")
     .update({
-      participant_service_id: editGoalServiceId || null,
+      participant_service_id: null,
+      applicable_service_ids: editGoalServiceId ? [editGoalServiceId] : null,
       category_name: editGoalCategoryName.trim() || "Goals",
       goal_label: editGoalLabel.trim(),
       sort_order: Number(editGoalSortOrder) || 1,
@@ -1677,9 +1680,11 @@ async function handleUpdateGoal() {
   >
     <span>
       {goal.sort_order}. {goal.category_name || "Goals"}: {goal.goal_label}
-      {goal.participant_service_id
-        ? ` (${participant.participant_services?.find((s) => s.id === goal.participant_service_id)?.service_name || "Specific service"})`
-        : " (All services)"}
+      {Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
+        ? ` (${goal.applicable_service_ids.map((id) => participant.participant_services?.find((service) => service.id === id)?.service_name).filter(Boolean).join(", ") || "Specific services"})`
+        : goal.participant_service_id
+          ? ` (${participant.participant_services?.find((service) => service.id === goal.participant_service_id)?.service_name || "Specific service"})`
+          : " (All services)"}
       {goal.requires_detail ? ` — Detail prompt: ${goal.detail_prompt || "Required"}` : ""}
       {goal.requires_prompt_level ? " — Prompt level required" : ""}
     </span>
@@ -1691,7 +1696,7 @@ async function handleUpdateGoal() {
           setEditGoalCategoryName(goal.category_name || "Goals");
           setEditGoalLabel(goal.goal_label || "");
           setEditGoalSortOrder(String(goal.sort_order || 1));
-          setEditGoalServiceId(goal.participant_service_id || "");
+          setEditGoalServiceId(goal.applicable_service_ids?.[0] || goal.participant_service_id || "");
           setEditGoalRequiresDetail(Boolean(goal.requires_detail));
           setEditGoalRequiresPromptLevel(Boolean(goal.requires_prompt_level));
           setEditGoalDetailPrompt(goal.detail_prompt || "");

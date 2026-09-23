@@ -139,8 +139,12 @@ export default function NoteTemplatePreviewPage() {
   const visibleGoals = (participant?.participant_goals || [])
     .filter((goal) => goal.active)
     .filter((goal) => {
-      if (!goal.participant_service_id) return true;
-      if (goal.participant_service_id === selectedServiceRow?.id) return true;
+      const applicableServiceIds = Array.isArray(goal.applicable_service_ids)
+        ? goal.applicable_service_ids
+        : [];
+      if (applicableServiceIds.length === 0 && !goal.participant_service_id) return true;
+      if (applicableServiceIds.includes(selectedServiceRow?.id)) return true;
+      if (applicableServiceIds.length === 0 && goal.participant_service_id === selectedServiceRow?.id) return true;
       return selectedGoals.includes(String(goal.id));
     })
     .sort((a, b) => a.sort_order - b.sort_order);

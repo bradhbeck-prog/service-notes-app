@@ -65,6 +65,7 @@ export async function GET(request, { params }) {
         active,
         category_name,
         participant_service_id,
+        applicable_service_ids,
         detail_prompt,
         requires_detail,
         requires_prompt_level
