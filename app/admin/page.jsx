@@ -6,11 +6,50 @@ import { supabase } from "../../lib/supabase";
 
 const C = { ink: "#1f2937", muted: "#5d6878", teal: "#149f91", blue: "#2e6eae", pink: "#eb88a5", yellow: "#ffd95a", pale: "#eaf3fb", border: "#d4e2ee" };
 const SERVICE_CODES = { "In-Home and Community Supports": "W7060", "In-Home and Community Supports Enhanced": "W7061", Companion: "W1726", "Day Respite": "W9798", "15-Minute Respite": "W9862" };
+const DEFAULT_PROMPT_LEVELS = [
+  "Independent",
+  "Verbal Prompt",
+  "Gesture Prompt",
+  "Modeling",
+  "Partial Physical Prompt",
+  "Hand Over Hand",
+  "Full Physical Prompt",
+];
+const PROMPT_ALIASES = {
+  independent: "Independent",
+  verbal: "Verbal Prompt",
+  "verbal prompt": "Verbal Prompt",
+  gesture: "Gesture Prompt",
+  gestural: "Gesture Prompt",
+  "gesture prompt": "Gesture Prompt",
+  model: "Modeling",
+  modeling: "Modeling",
+  pp: "Partial Physical Prompt",
+  "partial physical": "Partial Physical Prompt",
+  "partial physical prompt": "Partial Physical Prompt",
+  hoh: "Hand Over Hand",
+  "hand over hand": "Hand Over Hand",
+  "hand over hand prompt": "Hand Over Hand",
+  fp: "Full Physical Prompt",
+  "full physical": "Full Physical Prompt",
+  "full physical prompt": "Full Physical Prompt",
+};
 const button = { display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 42, padding: "9px 15px", borderRadius: 8, border: `1px solid ${C.teal}`, background: C.teal, color: "white", fontWeight: 700, textDecoration: "none", cursor: "pointer" };
 const secondary = { ...button, background: "white", color: C.blue, borderColor: C.border };
 const input = { width: "100%", minHeight: 44, padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.border}`, background: "white", fontSize: 16, boxSizing: "border-box" };
 const card = { padding: 22, borderRadius: 14, border: `1px solid ${C.border}`, background: "white" };
 const normalize = (value) => String(value || "").toLowerCase().trim();
+function normalizePromptLevel(value) {
+  const cleaned = String(value || "").trim().replace(/[–—-]/g, " ").replace(/\s+/g, " ");
+  return PROMPT_ALIASES[cleaned.toLowerCase()] || cleaned;
+}
+function participantPromptLevels(participant) {
+  const stored = Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length
+    ? participant.prompt_levels
+    : DEFAULT_PROMPT_LEVELS;
+  const normalized = stored.map(normalizePromptLevel).filter(Boolean);
+  return [...new Set(normalized)];
+}
 
 export default function AdminDashboard() {
   const [checking, setChecking] = useState(true);
@@ -29,6 +68,8 @@ export default function AdminDashboard() {
   const [resettingId, setResettingId] = useState("");
   const [newWorker, setNewWorker] = useState({ name: "", email: "", participantId: "" });
   const [setupLink, setSetupLink] = useState("");
+  const [selectedPromptLevels, setSelectedPromptLevels] = useState(DEFAULT_PROMPT_LEVELS);
+  const [savingPrompts, setSavingPrompts] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
   const [goalDraft, setGoalDraft] = useState({
@@ -58,7 +99,7 @@ export default function AdminDashboard() {
   async function loadData() {
     setLoading(true);
     const { data: participantRows, error } = await supabase.from("participants").select(`
-      id, name, cle_email, active, service_name, workspace_id,
+      id, name, cle_email, active, service_name, workspace_id, prompt_levels,
       participant_services (id, service_name, active),
       participant_goals (
         id, participant_id, participant_service_id, goal_label, category_name,
@@ -84,6 +125,32 @@ export default function AdminDashboard() {
   const assignedWorkerIds = assignments.filter((a) => a.participant_id === selectedId).map((a) => a.worker_id);
   const assignedWorkers = workers.filter((w) => assignedWorkerIds.includes(w.id));
   const participantNames = (workerId) => { const ids = assignments.filter((a) => a.worker_id === workerId).map((a) => a.participant_id); return participants.filter((p) => ids.includes(p.id)).map((p) => p.name); };
+  const availablePromptLevels = useMemo(() => {
+    const custom = participantPromptLevels(participant).filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level));
+    return [...DEFAULT_PROMPT_LEVELS, ...custom];
+  }, [participant]);
+
+  useEffect(() => {
+    setSelectedPromptLevels(participantPromptLevels(participant));
+  }, [selectedId, participant?.prompt_levels]);
+
+  function togglePromptLevel(level) {
+    setSelectedPromptLevels((current) =>
+      current.includes(level) ? current.filter((item) => item !== level) : [...current, level]
+    );
+  }
+
+  async function savePromptLevels() {
+    if (!participant) return;
+    if (!selectedPromptLevels.length) return setMessage("Choose at least one prompt level.");
+    setSavingPrompts(true); setMessage("");
+    const ordered = availablePromptLevels.filter((level) => selectedPromptLevels.includes(level));
+    const { error } = await supabase.from("participants").update({ prompt_levels: ordered }).eq("id", participant.id);
+    setSavingPrompts(false);
+    if (error) return setMessage(`Could not save prompt levels: ${error.message}`);
+    setMessage(`Prompt levels saved for ${participant.name}.`);
+    await loadData();
+  }
 
   const groupedGoals = useMemo(() => {
     const groups = new Map();
@@ -221,6 +288,19 @@ export default function AdminDashboard() {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}`} target="_blank" style={secondary}>View Blank Note</Link></div>
         </section>
         <section style={{ ...card, marginTop: 18 }}><h2 style={{ marginTop: 0 }}>Services</h2><div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{(participant.participant_services || []).filter((s) => s.active).map((s) => <span key={s.id} style={{ padding: "8px 11px", borderRadius: 20, background: C.pale, border: `1px solid ${C.border}` }}>{s.service_name}{SERVICE_CODES[s.service_name] ? ` · ${SERVICE_CODES[s.service_name]}` : ""}</span>)}{!participant.participant_services?.some((s) => s.active) && <span style={{ color: C.muted }}>{participant.service_name || "No service selected"}</span>}</div></section>
+        <section style={{ ...card, marginTop: 18 }}>
+          <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
+          <p style={{ color: C.muted, marginTop: 0 }}>Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.</p>
+          <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
+            {availablePromptLevels.map((level, index) => <label key={level} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedPromptLevels.includes(level) ? C.pink : C.border}`, background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "white", cursor: "pointer" }}>
+              <input type="checkbox" checked={selectedPromptLevels.includes(level)} onChange={() => togglePromptLevel(level)} />
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 27, height: 27, borderRadius: 14, background: selectedPromptLevels.includes(level) ? C.yellow : C.pale, color: C.ink, fontSize: 13, fontWeight: 800 }}>{index + 1}</span>
+              <strong>{level}</strong>
+            </label>)}
+          </div>
+          <button onClick={savePromptLevels} disabled={savingPrompts || !selectedPromptLevels.length} style={{ ...button, marginTop: 14, opacity: savingPrompts || !selectedPromptLevels.length ? .55 : 1 }}>{savingPrompts ? "Saving…" : "Save Prompt Levels"}</button>
+          {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
+        </section>
         <section id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><div><h2 style={{ margin: 0 }}>Goals</h2><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p></div><button onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={button}>Add Goal</button></div>
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
