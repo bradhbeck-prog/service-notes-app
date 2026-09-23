@@ -320,16 +320,16 @@ export default function ClePortalPage() {
   const cardStyle = {
     marginTop: 18,
     padding: 18,
-    border: "1px solid #d9e7e4",
+    border: "1px solid var(--dn-border)",
     borderRadius: 18,
     background: "#ffffff",
     boxShadow: "0 8px 24px rgba(31, 41, 55, 0.06)",
   };
   const statCardStyle = {
     padding: 14,
-    border: "1px solid #d9e7e4",
+    border: "1px solid var(--dn-border)",
     borderRadius: 14,
-    background: "#f8fffd",
+    background: "var(--dn-blue-pale)",
   };
   const primaryButtonStyle = {
     padding: "10px 14px",
@@ -369,8 +369,8 @@ export default function ClePortalPage() {
           alignItems: "flex-start",
           padding: 18,
           borderRadius: 22,
-          background: "linear-gradient(135deg, #f0fdfa 0%, #ffffff 70%)",
-          border: "1px solid #d9e7e4",
+          background: "linear-gradient(135deg, var(--dn-blue-pale) 0%, #ffffff 58%, var(--dn-pink-pale) 100%)",
+          border: "1px solid var(--dn-border)",
         }}
       >
         <div>
@@ -405,15 +405,15 @@ export default function ClePortalPage() {
               View Blank Service Note Template
             </button>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-              <div style={statCardStyle}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{notes.length}</div>
+              <div style={{ ...statCardStyle, borderTop: "4px solid var(--dn-blue)" }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-blue)" }}>{notes.length}</div>
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Submitted notes</div>
               </div>
-              <div style={statCardStyle}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{thisMonthNotes.length}</div>
+              <div style={{ ...statCardStyle, background: "var(--dn-pink-pale)", borderTop: "4px solid var(--dn-pink)" }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "#a43f60" }}>{thisMonthNotes.length}</div>
                 <div style={{ color: "#4b5563", fontSize: 14 }}>This month</div>
               </div>
-              <div style={statCardStyle}>
+              <div style={{ ...statCardStyle, background: "var(--dn-yellow-pale)", borderTop: "4px solid var(--dn-yellow)" }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{assignedWorkers.length}</div>
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
               </div>
@@ -436,7 +436,7 @@ export default function ClePortalPage() {
                       padding: 12,
                       border: "1px solid #d9e7e4",
                       borderRadius: 14,
-                      background: "#f8fffd",
+                      background: "var(--dn-blue-pale)",
                       display: "flex",
                       justifyContent: "space-between",
                       gap: 12,
@@ -487,7 +487,7 @@ export default function ClePortalPage() {
                     padding: 12,
                     border: deliveryPreferences.includes(option.value) ? "2px solid var(--dn-primary)" : "1px solid #d9e7e4",
                     borderRadius: 12,
-                    background: deliveryPreferences.includes(option.value) ? "#ecfdf5" : "#ffffff",
+                    background: deliveryPreferences.includes(option.value) ? "var(--dn-pink-pale)" : "#ffffff",
                     cursor: "pointer",
                   }}
                 >
@@ -612,9 +612,9 @@ export default function ClePortalPage() {
                       maxHeight: 430,
                       overflowY: "auto",
                       padding: 10,
-                      border: "2px solid #cfe5df",
+                      border: "2px solid var(--dn-blue)",
                       borderRadius: 14,
-                      background: "#f8fffd",
+                      background: "var(--dn-blue-pale)",
                       boxShadow: "inset 0 1px 8px rgba(31, 41, 55, 0.06)",
                     }}
                   >

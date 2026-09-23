@@ -137,6 +137,7 @@ return (
       }}
     >
       <div
+        className="dn-auth-card"
         style={{
           background: "#ffffff",
           border: "1px solid var(--dn-border)",

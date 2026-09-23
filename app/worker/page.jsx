@@ -610,7 +610,7 @@ if (selectedParticipant) {
         style={{
           marginBottom: 20,
           padding: "18px 20px",
-          background: "#ffffff",
+          background: "linear-gradient(135deg, var(--dn-blue-pale) 0%, #ffffff 58%, var(--dn-pink-pale) 100%)",
           border: "1px solid var(--dn-border)",
           borderRadius: 16,
         }}
@@ -655,7 +655,7 @@ if (selectedParticipant) {
               boxSizing: "border-box",
               borderRadius: 10,
               border: "1px solid var(--dn-border)",
-              background: "#f2faf8",
+              background: "var(--dn-blue-pale)",
             }}
           />
         </div>
@@ -684,7 +684,7 @@ if (selectedParticipant) {
                 boxSizing: "border-box",
                 borderRadius: 10,
                 border: "1px solid var(--dn-border)",
-                background: "#f2faf8",
+                background: "var(--dn-blue-pale)",
               }}
             />
 
@@ -729,7 +729,7 @@ if (selectedParticipant) {
                 boxSizing: "border-box",
                 borderRadius: 10,
                 border: "1px solid var(--dn-border)",
-                background: "#f2faf8",
+                background: "var(--dn-blue-pale)",
               }}
             />
           </div>
@@ -761,7 +761,7 @@ onChange={(e) => {
               boxSizing: "border-box",
               borderRadius: 10,
               border: "1px solid var(--dn-border)",
-              background: "#f2faf8",
+              background: "var(--dn-blue-pale)",
             }}
           >
             {selectedParticipant.participant_services
@@ -838,7 +838,11 @@ onChange={(e) => {
                       fontWeight: 700,
                       fontSize: 14,
                       marginBottom: 8,
-                      color: "var(--dn-primary)",
+                      color: "var(--dn-blue)",
+                      background: "var(--dn-yellow-pale)",
+                      borderLeft: "5px solid var(--dn-pink)",
+                      borderRadius: 7,
+                      padding: "7px 9px",
                     }}
                   >
                     {category}
@@ -854,9 +858,9 @@ onChange={(e) => {
                           key={goal.id}
                           style={{
                             padding: 10,
-                            border: "1px solid var(--dn-border)",
+                            border: isChecked ? "2px solid var(--dn-pink)" : "1px solid var(--dn-border)",
                             borderRadius: 10,
-                            background: "#fafafa",
+                            background: isChecked ? "var(--dn-yellow-pale)" : "#ffffff",
                           }}
                         >
                           <label

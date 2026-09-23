@@ -11,8 +11,17 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html>
-      <body>{children}</body>
+    <html lang="en">
+      <body>
+        <div className="dn-color-ribbon" aria-hidden="true">
+          <span /><span /><span /><span />
+        </div>
+        <div className="dn-brandbar">
+          <img src="/icon-192.png" alt="" width="46" height="46" />
+          <span>DreamNote</span>
+        </div>
+        {children}
+      </body>
     </html>
   )
 }

@@ -167,7 +167,7 @@ export default function NoteTemplatePreviewPage() {
     boxSizing: "border-box",
     borderRadius: 10,
     border: "1px solid var(--dn-border)",
-    background: "#f2faf8",
+    background: "var(--dn-blue-pale)",
   };
 
   const disabledInputStyle = {
@@ -215,7 +215,7 @@ export default function NoteTemplatePreviewPage() {
         style={{
           marginBottom: 20,
           padding: "18px 20px",
-          background: "#ffffff",
+          background: "linear-gradient(135deg, var(--dn-blue-pale) 0%, #ffffff 58%, var(--dn-pink-pale) 100%)",
           border: "1px solid var(--dn-border)",
           borderRadius: 16,
         }}

@@ -201,7 +201,7 @@ export default function AdminClePreviewPage() {
           alignItems: "flex-start",
           padding: 18,
           borderRadius: 22,
-          background: "linear-gradient(135deg, #f0fdfa 0%, #ffffff 70%)",
+          background: "linear-gradient(135deg, var(--dn-blue-pale) 0%, #ffffff 58%, var(--dn-pink-pale) 100%)",
           border: "1px solid #d9e7e4",
         }}
       >
