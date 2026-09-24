@@ -46,7 +46,7 @@ export async function GET(request) {
   const { admin, membership } = context;
 
   const { data: participants, error } = await admin.from("participants").select(`
-    id, name, cle_email, active, service_name, workspace_id, prompt_levels,
+    id, name, cle_email, cle_auth_user_id, cle_invited_at, active, service_name, workspace_id, prompt_levels,
     participant_services (id, service_name, active),
     participant_goals (
       id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,

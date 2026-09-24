@@ -74,6 +74,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(false);
   const [savingWorker, setSavingWorker] = useState(false);
   const [resettingId, setResettingId] = useState("");
+  const [sendingCleAccess, setSendingCleAccess] = useState(false);
   const [newWorker, setNewWorker] = useState({ name: "", email: "", participantId: "" });
   const [setupLink, setSetupLink] = useState("");
   const [selectedServiceNames, setSelectedServiceNames] = useState([]);
@@ -402,6 +403,29 @@ export default function AdminDashboard() {
     }
   }
 
+  async function sendCleAccess() {
+    if (!participant?.cle_email) return setMessage(`Add a CLE email for ${participant?.name || "this participant"} first.`);
+    setMessage(""); setSetupLink(""); setSendingCleAccess(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const response = await fetch("/api/admin/invite-cle", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+        body: JSON.stringify({ participantId: participant.id }),
+      });
+      const result = await response.json();
+      if (!response.ok) return setMessage(result.error || "CLE access help could not be sent.");
+      setMessage(result.warning ? `${result.message} (${result.warning})` : result.message);
+      setSetupLink(result.setupLink || "");
+      await loadData();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      setMessage("CLE access help could not be sent. Please try again.");
+    } finally {
+      setSendingCleAccess(false);
+    }
+  }
+
   async function signOut() { await supabase.auth.signOut(); window.location.href = "/login"; }
 
   if (checking) return <main style={{ padding: 30 }}>Checking access…</main>;
@@ -422,7 +446,7 @@ export default function AdminDashboard() {
       <div>{loading ? <p>Loading participant…</p> : participant ? <>
         <section style={card}><h2 style={{ fontSize: 30, margin: "0 0 4px" }}>{participant.name}</h2><p style={{ color: C.muted, marginTop: 0 }}>CLE: {participant.cle_email || "Not assigned"}</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, margin: "20px 0" }}><Summary value={assignedWorkers.length} label="Assigned workers" /><Summary value={(participant.participant_goals || []).filter((g) => g.active).length} label="Active goals" /><Summary value={(participant.participant_services || []).filter((s) => s.active).length || (participant.service_name ? 1 : 0)} label="Services" /></div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}?returnTo=${encodeURIComponent("/admin")}`} style={secondary}>View Blank Note</Link></div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}?returnTo=${encodeURIComponent("/admin")}`} style={secondary}>View Blank Note</Link>{participant.cle_email && <button type="button" onClick={sendCleAccess} disabled={sendingCleAccess} style={{ ...secondary, opacity: sendingCleAccess ? .6 : 1 }}>{sendingCleAccess ? "Preparing CLE link…" : participant.cle_auth_user_id ? "Send CLE Password Help" : "Send CLE Setup Link"}</button>}</div>
         </section>
         <section style={{ ...card, marginTop: 18 }}>
           <h2 style={{ margin: "0 0 5px" }}>Services</h2>

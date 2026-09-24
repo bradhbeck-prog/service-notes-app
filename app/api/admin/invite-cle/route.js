@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { sendAccountSetupEmail } from "../../../../lib/sendEmail";
+import { sendAccountSetupEmail, sendPasswordHelpEmail } from "../../../../lib/sendEmail";
 import { buildProtectedAuthLink } from "../../../../lib/authLinks";
 
 export const runtime = "nodejs";
@@ -84,15 +84,39 @@ export async function POST(request) {
     return json({ error: `Enter a valid CLE email for ${participant.name} first.` }, 400);
   }
 
-  if (participant.cle_auth_user_id) {
-    return json(
-      { error: `${participant.name}'s CLE already has an invited or registered account.` },
-      409
-    );
-  }
-
   const origin = new URL(request.url).origin;
   const redirectTo = `${origin}/reset-password`;
+
+  if (participant.cle_auth_user_id) {
+    const { data: recovery, error: recoveryError } = await admin.auth.admin.generateLink({
+      type: "recovery",
+      email,
+      options: { redirectTo },
+    });
+    const resetLink = buildProtectedAuthLink(origin, recovery);
+    if (recoveryError || !resetLink) {
+      return json({ error: recoveryError?.message || "A new CLE access link could not be created." }, 400);
+    }
+
+    try {
+      await sendPasswordHelpEmail({ to: email, name: "there", actionLink: resetLink });
+      return json({
+        message: `A new CLE password link was sent to ${email} for ${participant.name}.`,
+        setupLink: resetLink,
+        emailSent: true,
+        linkType: "recovery",
+      });
+    } catch (emailError) {
+      return json({
+        message: "The CLE password link was created, but the email could not be delivered.",
+        warning: emailError.message,
+        setupLink: resetLink,
+        emailSent: false,
+        linkType: "recovery",
+      });
+    }
+  }
+
   const { data: invitation, error: inviteError } =
     await admin.auth.admin.generateLink({
       type: "invite",
@@ -141,6 +165,7 @@ export async function POST(request) {
       message: `CLE setup link sent to ${email} for ${participant.name}.`,
       setupLink,
       emailSent: true,
+      linkType: "invite",
     });
   } catch (emailError) {
     return json({
@@ -148,6 +173,7 @@ export async function POST(request) {
       warning: emailError.message,
       setupLink,
       emailSent: false,
+      linkType: "invite",
     });
   }
 }
