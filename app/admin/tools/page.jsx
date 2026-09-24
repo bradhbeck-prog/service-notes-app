@@ -72,7 +72,10 @@ export default function AdminPage() {
   const [workerInviteEmails, setWorkerInviteEmails] = useState({});
   const [invitingWorkerId, setInvitingWorkerId] = useState("");
   const [resettingWorkerId, setResettingWorkerId] = useState("");
+  const [workerResetLinks, setWorkerResetLinks] = useState({});
+  const [copiedAccessLink, setCopiedAccessLink] = useState("");
   const [invitingCleParticipantId, setInvitingCleParticipantId] = useState("");
+  const [cleAccessNotices, setCleAccessNotices] = useState({});
   const [adminWorkspaceId, setAdminWorkspaceId] = useState("");
   const [goalServiceId, setGoalServiceId] = useState("");
   const [goalRequiresDetail, setGoalRequiresDetail] = useState(false);
@@ -777,11 +780,16 @@ async function handleUpdateGoal() {
   async function handleInviteCle(participant) {
     if (!participant?.cle_email) {
       setMessage(`Enter a CLE email for ${participant.name} first.`);
+      setCleAccessNotices((current) => ({
+        ...current,
+        [participant.id]: { type: "error", text: `Enter a CLE email for ${participant.name} first.` },
+      }));
       return;
     }
 
     setInvitingCleParticipantId(participant.id);
     setMessage("");
+    setCleAccessNotices((current) => ({ ...current, [participant.id]: null }));
 
     const {
       data: { session },
@@ -790,6 +798,10 @@ async function handleUpdateGoal() {
     if (!session?.access_token) {
       setInvitingCleParticipantId("");
       setMessage("Sign in with your owner email before inviting a CLE.");
+      setCleAccessNotices((current) => ({
+        ...current,
+        [participant.id]: { type: "error", text: "Sign in again before sending the CLE link." },
+      }));
       return;
     }
 
@@ -806,14 +818,35 @@ async function handleUpdateGoal() {
       const result = await response.json();
 
       if (!response.ok) {
-        setMessage(result.error || "The CLE setup link could not be sent.");
+        const errorMessage = result.error || "The CLE setup link could not be sent.";
+        setMessage(errorMessage);
+        setCleAccessNotices((current) => ({
+          ...current,
+          [participant.id]: { type: "error", text: errorMessage },
+        }));
         return;
       }
 
-      setMessage(result.message);
+      const confirmation = result.warning
+        ? `${result.message} ${result.warning}`
+        : result.message || `The CLE link was sent to ${participant.cle_email}.`;
+      setMessage(confirmation);
+      setCleAccessNotices((current) => ({
+        ...current,
+        [participant.id]: {
+          type: result.emailSent === false ? "error" : "success",
+          text: confirmation,
+          link: result.setupLink || "",
+        },
+      }));
       await loadData();
     } catch {
-      setMessage("The CLE setup link could not be sent. Please try again.");
+      const errorMessage = "The CLE setup link could not be sent. Please try again.";
+      setMessage(errorMessage);
+      setCleAccessNotices((current) => ({
+        ...current,
+        [participant.id]: { type: "error", text: errorMessage },
+      }));
     } finally {
       setInvitingCleParticipantId("");
     }
@@ -872,6 +905,7 @@ async function handleUpdateGoal() {
 
     setResettingWorkerId(worker.id);
     setMessage("");
+    setWorkerResetLinks((current) => ({ ...current, [worker.id]: "" }));
 
     const {
       data: { session },
@@ -901,6 +935,10 @@ async function handleUpdateGoal() {
       }
 
       setMessage(result.message);
+      setWorkerResetLinks((current) => ({
+        ...current,
+        [worker.id]: result.resetLink || "",
+      }));
     } catch {
       setMessage("The password reset email could not be sent. Please try again.");
     } finally {
@@ -1556,6 +1594,27 @@ async function handleUpdateGoal() {
                       ? "Sending reset..."
                       : "Send Password Reset Link"}
                   </button>
+                  {workerResetLinks[worker.id] && (
+                    <div style={{ marginTop: 8, maxWidth: 720, padding: 10, border: "1px solid #149f91", borderRadius: 8, background: "#e8faf3" }}>
+                      <strong style={{ display: "block", color: "#166534", marginBottom: 6 }}>Backup password link</strong>
+                      <input readOnly value={workerResetLinks[worker.id]} style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #a7d9cf", borderRadius: 6, background: "white" }} />
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await navigator.clipboard.writeText(workerResetLinks[worker.id]);
+                            setCopiedAccessLink(`worker-${worker.id}`);
+                          }}
+                          style={{ padding: "7px 10px", fontSize: 14 }}
+                        >
+                          {copiedAccessLink === `worker-${worker.id}` ? "Copied!" : "Copy Backup Link"}
+                        </button>
+                        <button type="button" onClick={() => window.open(workerResetLinks[worker.id], "_blank", "noopener,noreferrer")} style={{ padding: "7px 10px", fontSize: 14 }}>
+                          Open Link
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               <div style={{ marginTop: 8 }}>
@@ -1584,17 +1643,57 @@ async function handleUpdateGoal() {
                   : "Not invited yet"}
               </div>
               {participant.cle_email && (
-                <button
-                  onClick={() => handleInviteCle(participant)}
-                  disabled={invitingCleParticipantId === participant.id}
-                  style={{ marginTop: 8, padding: "8px 12px", fontSize: 14 }}
-                >
-                  {invitingCleParticipantId === participant.id
-                    ? "Preparing CLE link..."
-                    : participant.cle_auth_user_id
-                      ? "Send CLE Password Help"
-                      : "Send CLE Setup Link"}
-                </button>
+                <div>
+                  <button
+                    onClick={() => handleInviteCle(participant)}
+                    disabled={invitingCleParticipantId === participant.id}
+                    style={{ marginTop: 8, padding: "8px 12px", fontSize: 14 }}
+                  >
+                    {invitingCleParticipantId === participant.id
+                      ? "Preparing CLE link..."
+                      : participant.cle_auth_user_id
+                        ? "Send CLE Password Help"
+                        : "Send CLE Setup Link"}
+                  </button>
+                  {cleAccessNotices[participant.id] && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        marginTop: 8,
+                        maxWidth: 620,
+                        padding: "10px 12px",
+                        borderRadius: 8,
+                        border: `1px solid ${cleAccessNotices[participant.id].type === "success" ? "#149f91" : "#dc2626"}`,
+                        background: cleAccessNotices[participant.id].type === "success" ? "#e8faf3" : "#fff0f0",
+                        color: cleAccessNotices[participant.id].type === "success" ? "#166534" : "#991b1b",
+                        fontWeight: 700,
+                      }}
+                    >
+                      {cleAccessNotices[participant.id].text}
+                      {cleAccessNotices[participant.id].link && (
+                        <div style={{ marginTop: 8 }}>
+                          <input readOnly value={cleAccessNotices[participant.id].link} style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #a7d9cf", borderRadius: 6, background: "white", color: "#1f2937" }} />
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await navigator.clipboard.writeText(cleAccessNotices[participant.id].link);
+                                setCopiedAccessLink(`cle-${participant.id}`);
+                              }}
+                              style={{ padding: "7px 10px", fontSize: 14 }}
+                            >
+                              {copiedAccessLink === `cle-${participant.id}` ? "Copied!" : "Copy Backup Link"}
+                            </button>
+                            <button type="button" onClick={() => window.open(cleAccessNotices[participant.id].link, "_blank", "noopener,noreferrer")} style={{ padding: "7px 10px", fontSize: 14 }}>
+                              Open Link
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               <div style={{ marginTop: 8 }}>
                 <button
