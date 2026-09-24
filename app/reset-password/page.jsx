@@ -8,6 +8,8 @@ export default function ResetPasswordPage() {
   const [message, setMessage] = useState("Opening your secure reset link...");
   const [sessionReady, setSessionReady] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(null);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -35,12 +37,22 @@ export default function ResetPasswordPage() {
         window.history.replaceState({}, document.title, "/reset-password");
       } else if (window.location.hash) {
         const hash = new URLSearchParams(window.location.hash.slice(1));
+        const tokenHash = hash.get("token_hash");
+        const verificationType = hash.get("type");
         const accessToken = hash.get("access_token");
         const refreshToken = hash.get("refresh_token");
         const hashError = hash.get("error_description") || hash.get("error");
 
         if (hashError) {
           if (active) setMessage(decodeURIComponent(hashError));
+          return;
+        }
+
+        if (tokenHash && ["recovery", "invite"].includes(verificationType)) {
+          if (active) {
+            setPendingVerification({ tokenHash, type: verificationType });
+            setMessage("Press Continue to open your secure DreamNote password link.");
+          }
           return;
         }
 
@@ -96,6 +108,29 @@ export default function ResetPasswordPage() {
     };
   }, []);
 
+  async function handleContinue() {
+    if (!pendingVerification || verifying) return;
+    setVerifying(true);
+    setMessage("Verifying your secure link...");
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      token_hash: pendingVerification.tokenHash,
+      type: pendingVerification.type,
+    });
+
+    if (error || !data.session) {
+      setMessage(error?.message || "This reset link is invalid or expired. Request a new link.");
+      setVerifying(false);
+      return;
+    }
+
+    window.history.replaceState({}, document.title, "/reset-password");
+    setPendingVerification(null);
+    setSessionReady(true);
+    setVerifying(false);
+    setMessage("Enter your new password.");
+  }
+
   async function handleReset(e) {
     e.preventDefault();
 
@@ -128,6 +163,12 @@ export default function ResetPasswordPage() {
   return (
     <div style={{ padding: 40 }}>
       <h1>Reset Password</h1>
+
+      {pendingVerification ? (
+        <button type="button" onClick={handleContinue} disabled={verifying} style={{ marginBottom: 18 }}>
+          {verifying ? "Opening..." : "Continue to Password Reset"}
+        </button>
+      ) : null}
 
       <form onSubmit={handleReset}>
         <input

@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendPasswordHelpEmail } from "../../../../lib/sendEmail";
+import { buildProtectedAuthLink } from "../../../../lib/authLinks";
 
 export const runtime = "nodejs";
 
@@ -93,7 +94,7 @@ export async function POST(request) {
     email: worker.email,
     options: { redirectTo },
   });
-  const resetLink = generated?.properties?.action_link;
+  const resetLink = buildProtectedAuthLink(new URL(request.url).origin, generated);
 
   if (resetError || !resetLink) {
     return json(

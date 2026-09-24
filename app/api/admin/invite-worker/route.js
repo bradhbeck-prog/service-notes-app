@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { sendAccountSetupEmail } from "../../../../lib/sendEmail";
+import { buildProtectedAuthLink } from "../../../../lib/authLinks";
 
 export const runtime = "nodejs";
 
@@ -148,7 +149,7 @@ export async function POST(request) {
     type: "invite", email,
     options: { redirectTo, data: { worker_id: worker.id, worker_name: worker.name } },
   });
-  const actionLink = generated?.properties?.action_link;
+  const actionLink = buildProtectedAuthLink(new URL(request.url).origin, generated);
   const invitedUser = generated?.user;
   if (generateError || !actionLink || !invitedUser) {
     return json({ error: generateError?.message || "The secure setup link could not be created." }, 400);

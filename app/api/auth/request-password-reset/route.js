@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { sendPasswordHelpEmail } from "../../../../lib/sendEmail";
+import { buildProtectedAuthLink } from "../../../../lib/authLinks";
 
 export const runtime = "nodejs";
 
@@ -42,7 +44,7 @@ export async function POST(request) {
 
   const { data: worker } = await admin
     .from("workers")
-    .select("id, email, auth_user_id, active")
+    .select("id, name, email, auth_user_id, active")
     .ilike("email", email)
     .eq("active", true)
     .not("auth_user_id", "is", null)
@@ -62,8 +64,24 @@ export async function POST(request) {
     return json({ message: GENERIC_MESSAGE });
   }
 
-  const redirectTo = `${new URL(request.url).origin}/reset-password`;
-  await admin.auth.resetPasswordForEmail(email, { redirectTo });
+  const origin = new URL(request.url).origin;
+  const { data: generated, error: generateError } = await admin.auth.admin.generateLink({
+    type: "recovery",
+    email,
+    options: { redirectTo: `${origin}/reset-password` },
+  });
+  const protectedLink = buildProtectedAuthLink(origin, generated);
+  if (!generateError && protectedLink) {
+    try {
+      await sendPasswordHelpEmail({
+        to: email,
+        name: worker?.name || "there",
+        actionLink: protectedLink,
+      });
+    } catch {
+      // Preserve the generic response so this endpoint never reveals accounts.
+    }
+  }
 
   return json({ message: GENERIC_MESSAGE });
 }

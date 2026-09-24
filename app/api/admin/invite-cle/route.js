@@ -1,4 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
+import { sendAccountSetupEmail } from "../../../../lib/sendEmail";
+import { buildProtectedAuthLink } from "../../../../lib/authLinks";
 
 export const runtime = "nodejs";
 
@@ -89,18 +91,24 @@ export async function POST(request) {
     );
   }
 
-  const redirectTo = `${new URL(request.url).origin}/reset-password`;
+  const origin = new URL(request.url).origin;
+  const redirectTo = `${origin}/reset-password`;
   const { data: invitation, error: inviteError } =
-    await admin.auth.admin.inviteUserByEmail(email, {
-      redirectTo,
-      data: {
+    await admin.auth.admin.generateLink({
+      type: "invite",
+      email,
+      options: {
+        redirectTo,
+        data: {
         role: "cle",
         participant_id: participant.id,
         participant_name: participant.name,
+        },
       },
     });
 
-  if (inviteError || !invitation.user) {
+  const setupLink = buildProtectedAuthLink(origin, invitation);
+  if (inviteError || !invitation?.user || !setupLink) {
     return json(
       { error: inviteError?.message || "Supabase could not send the CLE invitation." },
       400
@@ -127,7 +135,19 @@ export async function POST(request) {
     );
   }
 
-  return json({
-    message: `CLE setup link sent to ${email} for ${participant.name}.`,
-  });
+  try {
+    await sendAccountSetupEmail({ to: email, name: "there", actionLink: setupLink });
+    return json({
+      message: `CLE setup link sent to ${email} for ${participant.name}.`,
+      setupLink,
+      emailSent: true,
+    });
+  } catch (emailError) {
+    return json({
+      message: "The CLE account was created, but the setup email could not be delivered.",
+      warning: emailError.message,
+      setupLink,
+      emailSent: false,
+    });
+  }
 }
