@@ -699,8 +699,8 @@ export default function ClePortalPage() {
           <p>No participant is linked to this CLE login yet.</p>
         </section>
       ) : (
-        <>
-          <section style={cardStyle}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <section style={{ ...cardStyle, order: 1 }}>
             <h2 style={{ marginTop: 0, marginBottom: 6 }}>{participant.name}</h2>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
@@ -728,7 +728,7 @@ export default function ClePortalPage() {
             </div>
           </section>
 
-          <section id="cle-goals" style={{ ...cardStyle, scrollMarginTop: 20 }}>
+          <section id="cle-goals" style={{ ...cardStyle, scrollMarginTop: 20, order: 4 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div>
                 <h2 style={{ margin: 0 }}>Goals</h2>
@@ -911,7 +911,7 @@ export default function ClePortalPage() {
             </form>
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 5 }}>
             <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
             <p style={{ color: "#5d6878", marginTop: 0 }}>
               Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.
@@ -950,7 +950,7 @@ export default function ClePortalPage() {
             {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 6 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               These workers can currently open notes for {participant.name}. Removing access here only removes this participant assignment; it does not delete the worker or past notes.
@@ -1001,7 +1001,7 @@ export default function ClePortalPage() {
             </div>
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 3 }}>
             <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
             <p style={{ color: "#4b5563" }}>
               Choose one or more ways you would like to receive service notes.
@@ -1041,39 +1041,32 @@ export default function ClePortalPage() {
             </div>
           </section>
 
-          <section style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Monthly Archive</h2>
-            <p style={{ color: "#4b5563" }}>
-              Download one combined PDF for a calendar month. Each service note starts on its own page.
-            </p>
-            {archiveMonthOptions.length === 0 ? (
-              <p>No submitted notes are available for an archive yet.</p>
-            ) : (
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-                <select
-                  value={archiveMonth}
-                  onChange={(e) => setArchiveMonth(e.target.value)}
-                  style={{ padding: 10, fontSize: 16, minWidth: 220, borderRadius: 10, border: "1px solid #cbd5e1" }}
-                >
-                  {archiveMonthOptions.map((month) => (
-                    <option key={month} value={month}>
-                      {formatArchiveMonth(month)}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleDownloadMonthlyArchive}
-                  disabled={downloadingArchive}
-                  style={primaryButtonStyle}
-                >
-                  {downloadingArchive ? "Preparing archive..." : "Download Monthly Archive"}
-                </button>
-              </div>
-            )}
-          </section>
-
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 2 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
+              <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
+              <p style={{ color: "#4b5563", marginTop: 0 }}>
+                Download one combined PDF for a calendar month. Each service note starts on its own page.
+              </p>
+              {archiveMonthOptions.length === 0 ? (
+                <p style={{ marginBottom: 0 }}>No submitted notes are available for an archive yet.</p>
+              ) : (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <select
+                    value={archiveMonth}
+                    onChange={(e) => setArchiveMonth(e.target.value)}
+                    style={{ padding: 10, fontSize: 16, minWidth: 220, borderRadius: 10, border: "1px solid #cbd5e1" }}
+                  >
+                    {archiveMonthOptions.map((month) => (
+                      <option key={month} value={month}>{formatArchiveMonth(month)}</option>
+                    ))}
+                  </select>
+                  <button onClick={handleDownloadMonthlyArchive} disabled={downloadingArchive} style={primaryButtonStyle}>
+                    {downloadingArchive ? "Preparing archive..." : "Download Monthly Archive"}
+                  </button>
+                </div>
+              )}
+            </div>
             {notes.length === 0 ? (
               <p>No submitted notes yet.</p>
             ) : (
@@ -1187,7 +1180,7 @@ export default function ClePortalPage() {
               </>
             )}
           </section>
-        </>
+        </div>
       )}
     </main>
   );

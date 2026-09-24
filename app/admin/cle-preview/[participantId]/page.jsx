@@ -46,6 +46,14 @@ function formatDateTime(value) {
   });
 }
 
+function formatArchiveMonth(month) {
+  if (!month) return "";
+  const [year, monthNumber] = month.split("-");
+  const date = new Date(Date.UTC(Number(year), Number(monthNumber) - 1, 1));
+  if (Number.isNaN(date.getTime())) return month;
+  return date.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+}
+
 export default function AdminClePreviewPage() {
   const params = useParams();
   const participantId = params?.participantId;
@@ -138,6 +146,9 @@ export default function AdminClePreviewPage() {
     if (serviceFilter && note.service !== serviceFilter) return false;
     return true;
   });
+  const archiveMonthOptions = Array.from(
+    new Set(notes.map((note) => String(note.shift_date || "").slice(0, 7)).filter(Boolean))
+  ).sort((a, b) => b.localeCompare(a));
 
   function getFileNameFromResponse(response, fallback) {
     const disposition = response.headers.get("content-disposition") || "";
@@ -258,7 +269,7 @@ export default function AdminClePreviewPage() {
           marginBottom: 16,
         }}
       >
-        Admin Preview — this is a read-only view of what the CLE portal looks like for this participant.
+        Admin Preview — this is a full read-only walkthrough of what the CLE portal looks like for this participant.
       </div>
 
       <div
@@ -303,8 +314,8 @@ export default function AdminClePreviewPage() {
           <p>No participant was found for this preview.</p>
         </section>
       ) : (
-        <>
-          <section style={cardStyle}>
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <section style={{ ...cardStyle, order: 1 }}>
             <h2 style={{ marginTop: 0, marginBottom: 6 }}>{participant.name}</h2>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
@@ -332,7 +343,7 @@ export default function AdminClePreviewPage() {
             </div>
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 4 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div>
                 <h2 style={{ margin: 0 }}>Goals</h2>
@@ -424,7 +435,7 @@ export default function AdminClePreviewPage() {
             </div>
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 5 }}>
             <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
             <p style={{ color: "#5d6878", marginTop: 0 }}>
               The CLE can choose which prompt levels workers see whenever a goal requires a prompt level.
@@ -460,7 +471,7 @@ export default function AdminClePreviewPage() {
             <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 6 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               Read-only admin preview. CLEs can remove a worker's access from their own portal.
@@ -479,37 +490,67 @@ export default function AdminClePreviewPage() {
                       background: "#f8fffd",
                     }}
                   >
-                    <strong>{worker.name}</strong>
-                    <div style={{ color: "#4b5563", fontSize: 14 }}>
-                      {worker.email ? `${worker.email} · ` : ""}Last submitted note: {formatDate(worker.last_note_date)}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <strong>{worker.name}</strong>
+                        <div style={{ color: "#4b5563", fontSize: 14 }}>
+                          {worker.email ? `${worker.email} · ` : ""}Last submitted note: {formatDate(worker.last_note_date)}
+                        </div>
+                      </div>
+                      <button type="button" disabled style={{ ...disabledButtonStyle, borderColor: "#fecaca", color: "#991b1b" }}>Remove Access</button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-          </section>
-
-          <section style={cardStyle}>
-            <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
-            <div style={{ display: "grid", gap: 8 }}>
-              {DELIVERY_OPTIONS.map((option) => (
-                <div
-                  key={option.value}
-                  style={{
-                    padding: 12,
-                    border: deliveryPreferences.includes(option.value) ? "2px solid var(--dn-primary)" : "1px solid #d9e7e4",
-                    borderRadius: 12,
-                    background: deliveryPreferences.includes(option.value) ? "#ecfdf5" : "#ffffff",
-                  }}
-                >
-                  {deliveryPreferences.includes(option.value) ? "☑" : "☐"} {option.label}
-                </div>
-              ))}
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", color: "#92400e" }}>
+              Need to add a worker? Email Bradley at bradley@supportsbroker.com for now.
             </div>
           </section>
 
-          <section style={cardStyle}>
+          <section style={{ ...cardStyle, order: 3 }}>
+            <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
+            <p style={{ color: "#4b5563" }}>Choose one or more ways you would like to receive service notes.</p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {DELIVERY_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: 12,
+                    border: deliveryPreferences.includes(option.value) ? "2px solid var(--dn-primary)" : "1px solid #d9e7e4",
+                    borderRadius: 12,
+                    background: deliveryPreferences.includes(option.value) ? "var(--dn-pink-pale)" : "#ffffff",
+                  }}
+                >
+                  <input type="checkbox" checked={deliveryPreferences.includes(option.value)} disabled readOnly />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+            <button type="button" disabled style={{ ...disabledButtonStyle, marginTop: 12, background: "var(--dn-primary)", color: "white" }}>Save Preferences</button>
+          </section>
+
+          <section style={{ ...cardStyle, order: 2 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
+            <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
+              <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
+              <p style={{ color: "#4b5563", marginTop: 0 }}>
+                Download one combined PDF for a calendar month. Each service note starts on its own page.
+              </p>
+              {archiveMonthOptions.length === 0 ? (
+                <p style={{ marginBottom: 0 }}>No submitted notes are available for an archive yet.</p>
+              ) : (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+                  <select disabled value={archiveMonthOptions[0]} readOnly style={{ padding: 10, fontSize: 16, minWidth: 220, borderRadius: 10, border: "1px solid #cbd5e1" }}>
+                    {archiveMonthOptions.map((month) => <option key={month} value={month}>{formatArchiveMonth(month)}</option>)}
+                  </select>
+                  <button type="button" disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Download Monthly Archive</button>
+                </div>
+              )}
+            </div>
             {notes.length === 0 ? (
               <p>No submitted notes yet.</p>
             ) : (
@@ -583,7 +624,7 @@ export default function AdminClePreviewPage() {
               </>
             )}
           </section>
-        </>
+        </div>
       )}
     </main>
   );
