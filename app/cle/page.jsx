@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+
+const SERVICE_CODES = {
+  "In-Home and Community Supports": "W7060",
+  "In-Home and Community Supports Enhanced": "W7061",
+  Companion: "W1726",
+  "Day Respite": "W9798",
+  "15-Minute Respite": "W9862",
+};
 
 const DELIVERY_OPTIONS = [
   { value: "immediate", label: "Email each note when submitted" },
@@ -44,6 +52,19 @@ export default function ClePortalPage() {
   const [archiveMonth, setArchiveMonth] = useState("");
   const [downloadingArchive, setDownloadingArchive] = useState(false);
   const [removingWorkerId, setRemovingWorkerId] = useState("");
+  const [editingGoalId, setEditingGoalId] = useState("");
+  const [savingGoal, setSavingGoal] = useState(false);
+  const [renamingCategory, setRenamingCategory] = useState("");
+  const [categoryRenameDraft, setCategoryRenameDraft] = useState("");
+  const [savingCategoryRename, setSavingCategoryRename] = useState(false);
+  const [goalDraft, setGoalDraft] = useState({
+    categoryName: "",
+    goalLabel: "",
+    serviceIds: [],
+    requiresDetail: false,
+    requiresPromptLevel: false,
+    detailPrompt: "",
+  });
 
   async function loadPortal() {
     setLoading(true);
@@ -71,6 +92,14 @@ export default function ClePortalPage() {
     }
 
     setParticipant(result.participant);
+    setGoalDraft((current) => current.goalLabel || current.categoryName
+      ? current
+      : {
+          ...current,
+          serviceIds: (result.participant?.participant_services || [])
+            .filter((service) => service.active && String(service.service_name || "").trim().toLowerCase() !== "respite")
+            .map((service) => service.id),
+        });
     setDeliveryPreferences(
       Array.isArray(result.participant?.note_delivery_preferences) &&
         result.participant.note_delivery_preferences.length > 0
@@ -177,6 +206,177 @@ export default function ClePortalPage() {
       const next = current.filter((item) => item !== value);
       return next.length > 0 ? next : current;
     });
+  }
+
+  const activeParticipantServices = (participant?.participant_services || [])
+    .filter((service) => service.active && String(service.service_name || "").trim().toLowerCase() !== "respite")
+    .sort((first, second) => String(first.service_name || "").localeCompare(String(second.service_name || "")));
+
+  const groupedGoals = useMemo(() => {
+    const groups = new Map();
+    for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
+      const category = goal.category_name?.trim() || "Goals";
+      const categoryKey = category.toLocaleLowerCase();
+      if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
+      groups.get(categoryKey).goals.push(goal);
+    }
+    return [...groups.values()]
+      .sort((first, second) => first.category.localeCompare(second.category))
+      .map((group) => ({
+        category: group.category,
+        goals: group.goals.sort((first, second) =>
+          (Number(first.sort_order) || 0) - (Number(second.sort_order) || 0) ||
+          String(first.goal_label || "").localeCompare(String(second.goal_label || ""))
+        ),
+      }));
+  }, [participant]);
+
+  async function callGoalConfig(payload) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      window.location.href = "/login";
+      throw new Error("Sign in again before continuing.");
+    }
+    const response = await fetch("/api/cle/participant-config", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ ...payload, participantId: participant?.id }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "The goal change could not be saved.");
+    return result;
+  }
+
+  function clearGoalDraft() {
+    setEditingGoalId("");
+    setGoalDraft({
+      categoryName: "",
+      goalLabel: "",
+      serviceIds: activeParticipantServices.map((service) => service.id),
+      requiresDetail: false,
+      requiresPromptLevel: false,
+      detailPrompt: "",
+    });
+  }
+
+  function editGoal(goal) {
+    setEditingGoalId(goal.id);
+    const activeServiceIds = activeParticipantServices.map((service) => service.id);
+    const storedServiceIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
+      ? goal.applicable_service_ids
+      : goal.participant_service_id
+        ? [goal.participant_service_id]
+        : activeServiceIds;
+    setGoalDraft({
+      categoryName: goal.category_name || "Goals",
+      goalLabel: goal.goal_label || "",
+      serviceIds: storedServiceIds.filter((id) => activeServiceIds.includes(id)),
+      requiresDetail: Boolean(goal.requires_detail),
+      requiresPromptLevel: Boolean(goal.requires_prompt_level),
+      detailPrompt: goal.detail_prompt || "",
+    });
+    document.getElementById("cle-goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
+  async function saveGoal(event) {
+    event.preventDefault();
+    const categoryName = goalDraft.categoryName.trim() || "Goals";
+    const goalLabel = goalDraft.goalLabel.trim();
+    if (!goalLabel) return setMessage("Enter the goal description.");
+    if (activeParticipantServices.length && !goalDraft.serviceIds.length) {
+      return setMessage("Choose at least one service for this goal.");
+    }
+    setSavingGoal(true);
+    setMessage("");
+    try {
+      const result = await callGoalConfig({
+        action: "save_goal",
+        goal: {
+          id: editingGoalId || null,
+          categoryName,
+          goalLabel,
+          serviceIds: goalDraft.serviceIds,
+          requiresDetail: goalDraft.requiresDetail,
+          requiresPromptLevel: goalDraft.requiresPromptLevel,
+          detailPrompt: goalDraft.detailPrompt,
+        },
+      });
+      clearGoalDraft();
+      await loadPortal();
+      setMessage(result.message);
+      window.setTimeout(() => document.getElementById("cle-goals")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    } catch (error) {
+      setMessage(`Could not save goal: ${error.message}`);
+    } finally {
+      setSavingGoal(false);
+    }
+  }
+
+  async function archiveGoal(goal) {
+    if (!window.confirm(`Remove “${goal.goal_label}” from the active note template?`)) return;
+    try {
+      const result = await callGoalConfig({ action: "archive_goal", goalId: goal.id });
+      if (editingGoalId === goal.id) clearGoalDraft();
+      await loadPortal();
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(`Could not remove goal: ${error.message}`);
+    }
+  }
+
+  async function moveGoal(category, goalId, direction) {
+    const group = groupedGoals.find((item) => item.category === category);
+    if (!group) return;
+    const currentIndex = group.goals.findIndex((goal) => goal.id === goalId);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= group.goals.length) return;
+    const reordered = [...group.goals];
+    [reordered[currentIndex], reordered[nextIndex]] = [reordered[nextIndex], reordered[currentIndex]];
+    try {
+      const result = await callGoalConfig({
+        action: "reorder_goals",
+        goalIds: reordered.map((goal) => goal.id),
+      });
+      await loadPortal();
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(`Could not reorder goals: ${error.message}`);
+    }
+  }
+
+  async function renameCategory(event, group) {
+    event.preventDefault();
+    const newCategory = categoryRenameDraft.trim();
+    if (!newCategory) return setMessage("Enter a category name.");
+    if (newCategory.toLocaleLowerCase() === group.category.toLocaleLowerCase()) {
+      setRenamingCategory("");
+      setCategoryRenameDraft("");
+      return;
+    }
+    setSavingCategoryRename(true);
+    setMessage("");
+    try {
+      const result = await callGoalConfig({
+        action: "rename_category",
+        oldCategory: group.category,
+        newCategory,
+        goalIds: group.goals.map((goal) => goal.id),
+      });
+      if (goalDraft.categoryName.trim().toLocaleLowerCase() === group.category.toLocaleLowerCase()) {
+        setGoalDraft((current) => ({ ...current, categoryName: newCategory }));
+      }
+      setRenamingCategory("");
+      setCategoryRenameDraft("");
+      await loadPortal();
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(`Could not rename category: ${error.message}`);
+    } finally {
+      setSavingCategoryRename(false);
+    }
   }
 
   const workerOptions = Array.from(
@@ -349,6 +549,43 @@ export default function ClePortalPage() {
     color: "#1f2937",
     cursor: "pointer",
   };
+  const smallButtonStyle = {
+    ...secondaryButtonStyle,
+    padding: "6px 9px",
+    minHeight: 34,
+    fontSize: 14,
+    fontWeight: 700,
+  };
+  const inputStyle = {
+    display: "block",
+    width: "100%",
+    minHeight: 44,
+    padding: "10px 12px",
+    marginTop: 6,
+    borderRadius: 9,
+    border: "1px solid var(--dn-border)",
+    background: "#ffffff",
+    fontSize: 16,
+    boxSizing: "border-box",
+  };
+  const checkLabelStyle = {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    marginBottom: 12,
+    fontWeight: 700,
+  };
+  const tagStyle = {
+    display: "inline-block",
+    marginTop: 7,
+    marginRight: 6,
+    padding: "3px 7px",
+    borderRadius: 999,
+    background: "var(--dn-pink-pale)",
+    color: "#8f3655",
+    fontSize: 12,
+    fontWeight: 700,
+  };
 
   if (loading) {
     return (
@@ -418,6 +655,189 @@ export default function ClePortalPage() {
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
               </div>
             </div>
+          </section>
+
+          <section id="cle-goals" style={{ ...cardStyle, scrollMarginTop: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Goals</h2>
+                <p style={{ color: "#5d6878", margin: "5px 0 0" }}>
+                  These goals control what workers see on the service note. Goals are grouped by category.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  clearGoalDraft();
+                  window.setTimeout(() => document.getElementById("cle-goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }), 0);
+                }}
+                style={primaryButtonStyle}
+              >
+                Add Goal
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
+              {groupedGoals.map((group) => (
+                <section key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
+                    <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
+                    <button
+                      type="button"
+                      disabled={savingCategoryRename}
+                      onClick={() => {
+                        setRenamingCategory(group.category);
+                        setCategoryRenameDraft(group.category);
+                      }}
+                      style={{ ...smallButtonStyle, opacity: savingCategoryRename ? 0.5 : 1 }}
+                    >
+                      Rename
+                    </button>
+                  </div>
+
+                  {renamingCategory === group.category && (
+                    <form
+                      onSubmit={(event) => renameCategory(event, group)}
+                      style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "10px 14px", background: "var(--dn-pink-pale)", borderTop: "1px solid var(--dn-border)" }}
+                    >
+                      <label style={{ fontWeight: 700 }}>New category name</label>
+                      <input
+                        autoFocus
+                        value={categoryRenameDraft}
+                        onChange={(event) => setCategoryRenameDraft(event.target.value)}
+                        style={{ ...inputStyle, flex: "1 1 240px", width: "auto", marginTop: 0 }}
+                      />
+                      <button type="submit" disabled={savingCategoryRename || !categoryRenameDraft.trim()} style={{ ...smallButtonStyle, background: "var(--dn-primary)", color: "white" }}>
+                        {savingCategoryRename ? "Saving..." : "Save"}
+                      </button>
+                      <button type="button" onClick={() => { setRenamingCategory(""); setCategoryRenameDraft(""); }} style={smallButtonStyle}>
+                        Cancel
+                      </button>
+                    </form>
+                  )}
+
+                  {group.goals.map((goal, index) => {
+                    const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
+                      ? goal.applicable_service_ids
+                      : goal.participant_service_id
+                        ? [goal.participant_service_id]
+                        : [];
+                    const applicableNames = applicableIds.length
+                      ? activeParticipantServices.filter((service) => applicableIds.includes(service.id)).map((service) => service.service_name)
+                      : [];
+                    return (
+                      <article key={goal.id} style={{ padding: 14, borderTop: index ? "1px solid var(--dn-border)" : "none" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+                            <strong style={{ overflowWrap: "anywhere" }}>{goal.goal_label}</strong>
+                            <div style={{ color: "var(--dn-blue)", fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+                              {applicableIds.length ? applicableNames.join(" · ") || "No active services" : "All services"}
+                            </div>
+                            {goal.requires_prompt_level && <span style={tagStyle}>Prompt level</span>}
+                            {goal.requires_detail && <span style={tagStyle}>Written detail</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <button type="button" aria-label={`Move ${goal.goal_label} up`} disabled={index === 0} onClick={() => moveGoal(group.category, goal.id, -1)} style={{ ...smallButtonStyle, opacity: index === 0 ? 0.4 : 1 }}>↑</button>
+                            <button type="button" aria-label={`Move ${goal.goal_label} down`} disabled={index === group.goals.length - 1} onClick={() => moveGoal(group.category, goal.id, 1)} style={{ ...smallButtonStyle, opacity: index === group.goals.length - 1 ? 0.4 : 1 }}>↓</button>
+                            <button type="button" onClick={() => editGoal(goal)} style={smallButtonStyle}>Edit</button>
+                            <button type="button" onClick={() => archiveGoal(goal)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove</button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </section>
+              ))}
+              {!groupedGoals.length && (
+                <p style={{ padding: 16, borderRadius: 9, background: "var(--dn-blue-pale)", color: "#5d6878" }}>
+                  No active goals yet. Use Add Goal to begin the service note template.
+                </p>
+              )}
+            </div>
+
+            <form id="cle-goal-editor" onSubmit={saveGoal} style={{ marginTop: 20, padding: 18, borderRadius: 11, background: "var(--dn-blue-pale)", scrollMarginTop: 20 }}>
+              <h3 style={{ marginTop: 0 }}>{editingGoalId ? "Edit Goal" : "Add Goal"}</h3>
+              <datalist id="cle-goal-categories">
+                {groupedGoals.map((group) => <option key={group.category} value={group.category} />)}
+              </datalist>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
+                <label style={{ fontWeight: 800, minWidth: 0 }}>
+                  Category
+                  <span style={{ display: "block", color: "#5d6878", fontSize: 14, lineHeight: 1.4, fontWeight: 400, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                    Choose an existing category from the suggestions, or type a new category.
+                  </span>
+                  <input
+                    list="cle-goal-categories"
+                    value={goalDraft.categoryName}
+                    onChange={(event) => setGoalDraft({ ...goalDraft, categoryName: event.target.value })}
+                    placeholder="Select or type a category"
+                    style={inputStyle}
+                  />
+                </label>
+                <label style={{ fontWeight: 800, minWidth: 0 }}>
+                  Goal
+                  <textarea
+                    value={goalDraft.goalLabel}
+                    onChange={(event) => setGoalDraft({ ...goalDraft, goalLabel: event.target.value })}
+                    rows={3}
+                    style={{ ...inputStyle, resize: "vertical" }}
+                  />
+                </label>
+              </div>
+
+              {activeParticipantServices.length > 0 && (
+                <fieldset style={{ margin: "0 0 14px", padding: 14, borderRadius: 9, border: "1px solid var(--dn-border)" }}>
+                  <legend style={{ fontWeight: 800 }}>Services for this goal</legend>
+                  <p style={{ color: "#5d6878", marginTop: 0 }}>
+                    All services are selected by default. Uncheck any service where this goal should not appear.
+                  </p>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {activeParticipantServices.map((service) => (
+                      <label key={service.id} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <input
+                          type="checkbox"
+                          checked={goalDraft.serviceIds.includes(service.id)}
+                          onChange={(event) => setGoalDraft({
+                            ...goalDraft,
+                            serviceIds: event.target.checked
+                              ? [...goalDraft.serviceIds, service.id]
+                              : goalDraft.serviceIds.filter((id) => id !== service.id),
+                          })}
+                        />
+                        <span>{service.service_name}{SERVICE_CODES[service.service_name] ? ` · ${SERVICE_CODES[service.service_name]}` : ""}</span>
+                      </label>
+                    ))}
+                  </div>
+                  {!goalDraft.serviceIds.length && <p style={{ color: "#9b2c2c", fontWeight: 700, marginBottom: 0 }}>Choose at least one service.</p>}
+                </fieldset>
+              )}
+
+              <label style={checkLabelStyle}>
+                <input type="checkbox" checked={goalDraft.requiresPromptLevel} onChange={(event) => setGoalDraft({ ...goalDraft, requiresPromptLevel: event.target.checked })} />
+                Ask the worker to select a prompt level
+              </label>
+              <label style={checkLabelStyle}>
+                <input type="checkbox" checked={goalDraft.requiresDetail} onChange={(event) => setGoalDraft({ ...goalDraft, requiresDetail: event.target.checked })} />
+                Ask the worker for written details
+              </label>
+              {goalDraft.requiresDetail && (
+                <label style={{ display: "block", fontWeight: 800, marginBottom: 14 }}>
+                  Detail question
+                  <input
+                    value={goalDraft.detailPrompt}
+                    onChange={(event) => setGoalDraft({ ...goalDraft, detailPrompt: event.target.value })}
+                    placeholder="What should the worker describe?"
+                    style={inputStyle}
+                  />
+                </label>
+              )}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button type="submit" disabled={savingGoal} style={{ ...primaryButtonStyle, opacity: savingGoal ? 0.6 : 1 }}>
+                  {savingGoal ? "Saving..." : editingGoalId ? "Save Changes" : "Add Goal"}
+                </button>
+                {editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondaryButtonStyle}>Cancel</button>}
+              </div>
+            </form>
           </section>
 
           <section style={cardStyle}>

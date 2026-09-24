@@ -1583,15 +1583,17 @@ async function handleUpdateGoal() {
                   ? `Setup link/account linked${participant.cle_invited_at ? ` (${new Date(participant.cle_invited_at).toLocaleDateString()})` : ""}`
                   : "Not invited yet"}
               </div>
-              {participant.cle_email && !participant.cle_auth_user_id && (
+              {participant.cle_email && (
                 <button
                   onClick={() => handleInviteCle(participant)}
                   disabled={invitingCleParticipantId === participant.id}
                   style={{ marginTop: 8, padding: "8px 12px", fontSize: 14 }}
                 >
                   {invitingCleParticipantId === participant.id
-                    ? "Sending CLE setup link..."
-                    : "Send CLE Setup Link"}
+                    ? "Preparing CLE link..."
+                    : participant.cle_auth_user_id
+                      ? "Send CLE Password Help"
+                      : "Send CLE Setup Link"}
                 </button>
               )}
               <div style={{ marginTop: 8 }}>
