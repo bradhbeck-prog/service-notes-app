@@ -179,6 +179,13 @@ export default function AdminClePreviewPage() {
 
   return (
     <main style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
+      <button
+        type="button"
+        onClick={() => { window.location.href = "/admin"; }}
+        style={{ position: "sticky", top: 10, zIndex: 20, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid #cbd5e1", background: "#ffffff", color: "#1f2937", fontWeight: 700, boxShadow: "0 4px 14px rgba(31,41,55,.14)" }}
+      >
+        ← Back to Admin
+      </button>
       <div
         style={{
           padding: 14,
@@ -211,9 +218,6 @@ export default function AdminClePreviewPage() {
             Review service notes and delivery preferences for your participant.
           </p>
         </div>
-        <button onClick={() => { window.location.href = "/admin"; }} style={{ padding: "8px 10px" }}>
-          Back to Admin
-        </button>
       </div>
 
       {message ? <p style={{ color: "#b45309" }}>{message}</p> : null}
@@ -246,7 +250,7 @@ export default function AdminClePreviewPage() {
             </p>
             <button
               type="button"
-              onClick={() => window.open(`/note-template/${participant.id}`, "_blank", "noopener,noreferrer")}
+              onClick={() => { window.location.href = `/note-template/${participant.id}?returnTo=${encodeURIComponent(`/admin/cle-preview/${participant.id}`)}`; }}
               style={{ padding: "8px 10px", marginBottom: 12 }}
             >
               View Blank Service Note Template

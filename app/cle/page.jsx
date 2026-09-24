@@ -399,7 +399,7 @@ export default function ClePortalPage() {
             </p>
             <button
               type="button"
-              onClick={() => window.open(`/note-template/${participant.id}`, "_blank", "noopener,noreferrer")}
+              onClick={() => { window.location.href = `/note-template/${participant.id}?returnTo=${encodeURIComponent("/cle")}`; }}
               style={{ ...secondaryButtonStyle, marginBottom: 12 }}
             >
               View Blank Service Note Template

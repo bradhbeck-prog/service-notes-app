@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 
 const DEFAULT_PROMPT_LEVELS = [
@@ -78,6 +78,7 @@ function getCurrentTime() {
 
 export default function NoteTemplatePreviewPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const participantId = params?.participantId;
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -180,6 +181,17 @@ export default function NoteTemplatePreviewPage() {
     background: "#f8fafc",
   };
 
+  const requestedReturnPath = searchParams.get("returnTo") || "";
+  const returnPath =
+    requestedReturnPath === "/admin" ||
+    requestedReturnPath === "/cle" ||
+    requestedReturnPath === `/admin/cle-preview/${participantId}`
+      ? requestedReturnPath
+      : viewerRole === "admin"
+        ? "/admin"
+        : "/cle";
+  const returnLabel = returnPath === "/cle" ? "Back to CLE Portal" : returnPath === "/admin" ? "Back to Admin" : "Back to CLE Preview";
+
   if (loading) {
     return (
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 760, margin: "0 auto" }}>
@@ -200,6 +212,13 @@ export default function NoteTemplatePreviewPage() {
         margin: "0 auto",
       }}
     >
+      <button
+        type="button"
+        onClick={() => { window.location.href = returnPath; }}
+        style={{ position: "sticky", top: 10, zIndex: 20, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid var(--dn-border)", background: "#ffffff", color: "#1f2937", fontWeight: 700, boxShadow: "0 4px 14px rgba(31,41,55,.14)" }}
+      >
+        ← {returnLabel}
+      </button>
       <div
         style={{
           marginBottom: 16,

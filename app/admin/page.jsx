@@ -387,7 +387,7 @@ export default function AdminDashboard() {
       <div>{loading ? <p>Loading participant…</p> : participant ? <>
         <section style={card}><h2 style={{ fontSize: 30, margin: "0 0 4px" }}>{participant.name}</h2><p style={{ color: C.muted, marginTop: 0 }}>CLE: {participant.cle_email || "Not assigned"}</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, margin: "20px 0" }}><Summary value={assignedWorkers.length} label="Assigned workers" /><Summary value={(participant.participant_goals || []).filter((g) => g.active).length} label="Active goals" /><Summary value={(participant.participant_services || []).filter((s) => s.active).length || (participant.service_name ? 1 : 0)} label="Services" /></div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}`} target="_blank" style={secondary}>View Blank Note</Link></div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}?returnTo=${encodeURIComponent("/admin")}`} style={secondary}>View Blank Note</Link></div>
         </section>
         <section style={{ ...card, marginTop: 18 }}>
           <h2 style={{ margin: "0 0 5px" }}>Services</h2>
