@@ -83,6 +83,9 @@ export default function AdminDashboard() {
   const [savingPrompts, setSavingPrompts] = useState(false);
   const [editingGoalId, setEditingGoalId] = useState("");
   const [savingGoal, setSavingGoal] = useState(false);
+  const [renamingCategory, setRenamingCategory] = useState("");
+  const [categoryRenameDraft, setCategoryRenameDraft] = useState("");
+  const [savingCategoryRename, setSavingCategoryRename] = useState(false);
   const [goalDraft, setGoalDraft] = useState({
     categoryName: "",
     goalLabel: "",
@@ -320,6 +323,38 @@ export default function AdminDashboard() {
     }
   }
 
+  async function renameCategory(event, group) {
+    event.preventDefault();
+    const newCategory = categoryRenameDraft.trim();
+    if (!newCategory) return setMessage("Enter a category name.");
+    if (newCategory.toLocaleLowerCase() === group.category.toLocaleLowerCase()) {
+      setRenamingCategory("");
+      setCategoryRenameDraft("");
+      return;
+    }
+
+    setSavingCategoryRename(true); setMessage("");
+    try {
+      const result = await callParticipantConfig({
+        action: "rename_category",
+        oldCategory: group.category,
+        newCategory,
+        goalIds: group.goals.map((goal) => goal.id),
+      });
+      if (goalDraft.categoryName.trim().toLocaleLowerCase() === group.category.toLocaleLowerCase()) {
+        setGoalDraft((current) => ({ ...current, categoryName: newCategory }));
+      }
+      setRenamingCategory("");
+      setCategoryRenameDraft("");
+      setMessage(result.message);
+      await loadData();
+    } catch (error) {
+      setMessage(`Could not rename category: ${error.message}`);
+    } finally {
+      setSavingCategoryRename(false);
+    }
+  }
+
   async function addAndInvite(event) {
     event.preventDefault(); setMessage(""); setSetupLink("");
     if (!newWorker.name.trim() || !newWorker.email.trim() || !newWorker.participantId) return setMessage("Enter the worker's name and email, then choose a participant.");
@@ -409,7 +444,8 @@ export default function AdminDashboard() {
           {servicesDirty && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", fontWeight: 700 }}>Save the Services section above before changing goals.</p>}
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
             {groupedGoals.map((group) => <section key={group.category} style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden" }}>
-              <h3 style={{ margin: 0, padding: "11px 14px", background: "#fff7cf", color: C.blue, borderLeft: `6px solid ${C.pink}` }}>{group.category}</h3>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: `6px solid ${C.pink}` }}><h3 style={{ margin: 0, color: C.blue }}>{group.category}</h3><button type="button" disabled={servicesDirty || savingCategoryRename} onClick={() => { setRenamingCategory(group.category); setCategoryRenameDraft(group.category); }} style={{ ...smallButton, opacity: servicesDirty || savingCategoryRename ? .45 : 1 }}>Rename</button></div>
+              {renamingCategory === group.category && <form onSubmit={(event) => renameCategory(event, group)} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "10px 14px", background: "var(--dn-pink-pale)", borderTop: `1px solid ${C.border}` }}><label style={{ fontWeight: 700 }}>New category name</label><input autoFocus value={categoryRenameDraft} onChange={(event) => setCategoryRenameDraft(event.target.value)} style={{ ...input, flex: "1 1 240px", width: "auto" }} /><button type="submit" disabled={savingCategoryRename || !categoryRenameDraft.trim()} style={{ ...smallButton, background: C.teal, color: "white" }}>{savingCategoryRename ? "Saving…" : "Save"}</button><button type="button" onClick={() => { setRenamingCategory(""); setCategoryRenameDraft(""); }} style={smallButton}>Cancel</button></form>}
               {group.goals.map((goal, index) => {
                 const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
                   ? goal.applicable_service_ids
@@ -431,7 +467,8 @@ export default function AdminDashboard() {
 
           <form id="goal-editor" onSubmit={saveGoal} style={{ marginTop: 20, padding: 18, borderRadius: 11, background: C.pale, scrollMarginTop: 20 }}>
             <h3 style={{ marginTop: 0 }}>{editingGoalId ? "Edit Goal" : "Add Goal"}</h3>
-            <div className="goal-fields"><Field label="Category"><input value={goalDraft.categoryName} onChange={(e) => setGoalDraft({ ...goalDraft, categoryName: e.target.value })} placeholder="Example: Community Activities" style={input} /></Field><Field label="Goal"><textarea value={goalDraft.goalLabel} onChange={(e) => setGoalDraft({ ...goalDraft, goalLabel: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field></div>
+            <datalist id="participant-goal-categories">{groupedGoals.map((group) => <option key={group.category} value={group.category} />)}</datalist>
+            <div className="goal-fields"><Field label="Category"><input list="participant-goal-categories" value={goalDraft.categoryName} onChange={(e) => setGoalDraft({ ...goalDraft, categoryName: e.target.value })} placeholder="Choose an existing category or type a new one" style={input} /></Field><Field label="Goal"><textarea value={goalDraft.goalLabel} onChange={(e) => setGoalDraft({ ...goalDraft, goalLabel: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field></div>
             {activeParticipantServices.length > 0 && <fieldset style={{ margin: "0 0 14px", padding: 14, borderRadius: 9, border: `1px solid ${C.border}` }}><legend style={{ fontWeight: 800 }}>Services for this goal</legend><p style={{ color: C.muted, marginTop: 0 }}>All services are selected by default. Uncheck any service where this goal should not appear.</p><div style={{ display: "grid", gap: 8 }}>{activeParticipantServices.map((service) => <label key={service.id} style={{ display: "flex", alignItems: "center", gap: 9 }}><input type="checkbox" checked={goalDraft.serviceIds.includes(service.id)} onChange={(e) => setGoalDraft({ ...goalDraft, serviceIds: e.target.checked ? [...goalDraft.serviceIds, service.id] : goalDraft.serviceIds.filter((id) => id !== service.id) })} /><span>{service.service_name}{SERVICE_CODES[service.service_name] ? ` · ${SERVICE_CODES[service.service_name]}` : ""}</span></label>)}</div>{!goalDraft.serviceIds.length && <p style={{ color: "#9b2c2c", fontWeight: 700, marginBottom: 0 }}>Choose at least one service.</p>}</fieldset>}
             <label style={checkLabel}><input type="checkbox" checked={goalDraft.requiresPromptLevel} onChange={(e) => setGoalDraft({ ...goalDraft, requiresPromptLevel: e.target.checked })} /> Ask the worker to select a prompt level</label>
             <label style={checkLabel}><input type="checkbox" checked={goalDraft.requiresDetail} onChange={(e) => setGoalDraft({ ...goalDraft, requiresDetail: e.target.checked })} /> Ask the worker for written details</label>

@@ -174,6 +174,27 @@ export async function POST(request) {
     return json({ message: existingGoal ? `Goal updated under ${categoryName}.` : `Goal added under ${categoryName}.`, goalId: saved.id });
   }
 
+  if (action === "rename_category") {
+    const oldCategory = String(body.oldCategory || "").trim();
+    const newCategory = String(body.newCategory || "").trim();
+    const goalIds = [...new Set((Array.isArray(body.goalIds) ? body.goalIds : []).map(String))];
+    if (!oldCategory || !newCategory || !goalIds.length) {
+      return json({ error: "Choose a category and enter its new name." }, 400);
+    }
+
+    const { data: renamed, error } = await admin.from("participant_goals")
+      .update({ category_name: newCategory })
+      .eq("participant_id", participantId)
+      .eq("active", true)
+      .in("id", goalIds)
+      .select("id");
+    if (error) return json({ error: error.message }, 400);
+    if ((renamed || []).length !== goalIds.length) {
+      return json({ error: "Not every goal in this category could be updated." }, 400);
+    }
+    return json({ message: `Category renamed from ${oldCategory} to ${newCategory}.` });
+  }
+
   if (action === "archive_goal") {
     const goalId = String(body.goalId || "");
     const { data, error } = await admin.from("participant_goals").update({ active: false })
