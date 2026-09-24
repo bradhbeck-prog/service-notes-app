@@ -87,7 +87,14 @@ export async function GET(request, { params }) {
 
   const { data: participant, error: participantError } = await admin
     .from("participants")
-    .select("id, name, cle_email, note_delivery_preference, note_delivery_preferences, active")
+    .select(`
+      id, name, cle_email, note_delivery_preference, note_delivery_preferences, active,
+      participant_services (id, service_name, active),
+      participant_goals (
+        id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
+        sort_order, active, requires_detail, requires_prompt_level, detail_prompt
+      )
+    `)
     .eq("id", participantId)
     .maybeSingle();
 

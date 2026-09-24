@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 
@@ -84,6 +84,29 @@ export default function AdminClePreviewPage() {
     ? participant.note_delivery_preferences
     : ["immediate", "monthly"];
 
+  const activeParticipantServices = (participant?.participant_services || [])
+    .filter((service) => service.active && String(service.service_name || "").trim().toLowerCase() !== "respite")
+    .sort((first, second) => String(first.service_name || "").localeCompare(String(second.service_name || "")));
+
+  const groupedGoals = useMemo(() => {
+    const groups = new Map();
+    for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
+      const category = goal.category_name?.trim() || "Goals";
+      const categoryKey = category.toLocaleLowerCase();
+      if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
+      groups.get(categoryKey).goals.push(goal);
+    }
+    return [...groups.values()]
+      .sort((first, second) => first.category.localeCompare(second.category))
+      .map((group) => ({
+        category: group.category,
+        goals: group.goals.sort((first, second) =>
+          (Number(first.sort_order) || 0) - (Number(second.sort_order) || 0) ||
+          String(first.goal_label || "").localeCompare(String(second.goal_label || ""))
+        ),
+      }));
+  }, [participant]);
+
   const workerOptions = Array.from(
     new Set(notes.map((note) => note.workers?.name).filter(Boolean))
   ).sort();
@@ -166,6 +189,27 @@ export default function AdminClePreviewPage() {
     border: "1px solid #d9e7e4",
     borderRadius: 14,
     background: "#f8fffd",
+  };
+  const disabledButtonStyle = {
+    padding: "7px 10px",
+    borderRadius: 8,
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#64748b",
+    fontWeight: 700,
+    opacity: 0.7,
+  };
+  const previewInputStyle = {
+    display: "block",
+    width: "100%",
+    minHeight: 44,
+    padding: "10px 12px",
+    marginTop: 6,
+    borderRadius: 9,
+    border: "1px solid var(--dn-border)",
+    background: "#ffffff",
+    fontSize: 16,
+    boxSizing: "border-box",
   };
 
   if (loading) {
@@ -268,6 +312,98 @@ export default function AdminClePreviewPage() {
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{assignedWorkers.length}</div>
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
               </div>
+            </div>
+          </section>
+
+          <section style={cardStyle}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+              <div>
+                <h2 style={{ margin: 0 }}>Goals</h2>
+                <p style={{ color: "#5d6878", margin: "5px 0 0" }}>
+                  These goals control what workers see on the service note. In the real CLE portal, the CLE can add and edit them.
+                </p>
+              </div>
+              <button type="button" disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Goal</button>
+            </div>
+
+            <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
+              {groupedGoals.map((group) => (
+                <section key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
+                    <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
+                    <button type="button" disabled style={disabledButtonStyle}>Rename</button>
+                  </div>
+                  {group.goals.map((goal, index) => {
+                    const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
+                      ? goal.applicable_service_ids
+                      : goal.participant_service_id
+                        ? [goal.participant_service_id]
+                        : [];
+                    const applicableNames = applicableIds.length
+                      ? activeParticipantServices.filter((service) => applicableIds.includes(service.id)).map((service) => service.service_name)
+                      : [];
+                    return (
+                      <article key={goal.id} style={{ padding: 14, borderTop: index ? "1px solid var(--dn-border)" : "none" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                          <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+                            <strong style={{ overflowWrap: "anywhere" }}>{goal.goal_label}</strong>
+                            <div style={{ color: "var(--dn-blue)", fontSize: 13, fontWeight: 700, marginTop: 4 }}>
+                              {applicableIds.length ? applicableNames.join(" · ") || "No active services" : "All services"}
+                            </div>
+                            {goal.requires_prompt_level && <span style={{ display: "inline-block", marginTop: 7, marginRight: 6, padding: "3px 7px", borderRadius: 999, background: "var(--dn-pink-pale)", color: "#8f3655", fontSize: 12, fontWeight: 700 }}>Prompt level</span>}
+                            {goal.requires_detail && <span style={{ display: "inline-block", marginTop: 7, marginRight: 6, padding: "3px 7px", borderRadius: 999, background: "var(--dn-pink-pale)", color: "#8f3655", fontSize: 12, fontWeight: 700 }}>Written detail</span>}
+                          </div>
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                            <button type="button" disabled style={disabledButtonStyle}>↑</button>
+                            <button type="button" disabled style={disabledButtonStyle}>↓</button>
+                            <button type="button" disabled style={disabledButtonStyle}>Edit</button>
+                            <button type="button" disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button>
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </section>
+              ))}
+              {!groupedGoals.length && (
+                <p style={{ padding: 16, borderRadius: 9, background: "var(--dn-blue-pale)", color: "#5d6878" }}>
+                  No active goals yet. The CLE will be able to use Add Goal here.
+                </p>
+              )}
+            </div>
+
+            <div style={{ marginTop: 20, padding: 18, borderRadius: 11, background: "var(--dn-blue-pale)" }}>
+              <h3 style={{ marginTop: 0 }}>Add Goal</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
+                <label style={{ fontWeight: 800, minWidth: 0 }}>
+                  Category
+                  <span style={{ display: "block", color: "#5d6878", fontSize: 14, lineHeight: 1.4, fontWeight: 400, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                    The CLE can choose an existing category or type a new one.
+                  </span>
+                  <input disabled placeholder="Select or type a category" style={previewInputStyle} />
+                </label>
+                <label style={{ fontWeight: 800, minWidth: 0 }}>
+                  Goal
+                  <textarea disabled rows={3} style={{ ...previewInputStyle, resize: "vertical" }} />
+                </label>
+              </div>
+              {activeParticipantServices.length > 0 && (
+                <fieldset disabled style={{ margin: "0 0 14px", padding: 14, borderRadius: 9, border: "1px solid var(--dn-border)" }}>
+                  <legend style={{ fontWeight: 800 }}>Services for this goal</legend>
+                  <p style={{ color: "#5d6878", marginTop: 0 }}>The CLE can choose which services should show this goal.</p>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {activeParticipantServices.map((service) => (
+                      <label key={service.id} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                        <input type="checkbox" defaultChecked /> {service.service_name}
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              )}
+              <label style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12, fontWeight: 700 }}><input type="checkbox" disabled /> Ask the worker to select a prompt level</label>
+              <label style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12, fontWeight: 700 }}><input type="checkbox" disabled /> Ask the worker for written details</label>
+              <button type="button" disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Goal</button>
+              <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
             </div>
           </section>
 
