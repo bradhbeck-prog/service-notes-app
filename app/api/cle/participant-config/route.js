@@ -52,6 +52,29 @@ export async function POST(request) {
     return json({ error: "You can only manage goals for your linked participant." }, 403);
   }
 
+  if (action === "save_prompt_levels") {
+    const promptLevels = [...new Set(
+      (Array.isArray(body.promptLevels) ? body.promptLevels : [])
+        .map((level) => String(level || "").trim())
+        .filter(Boolean)
+    )];
+    if (!promptLevels.length) return json({ error: "Choose at least one prompt level." }, 400);
+    if (promptLevels.length > 20 || promptLevels.some((level) => level.length > 80)) {
+      return json({ error: "The prompt-level selection is invalid." }, 400);
+    }
+
+    const { data: updated, error } = await admin.from("participants")
+      .update({ prompt_levels: promptLevels })
+      .eq("id", participant.id)
+      .eq("active", true)
+      .select("id")
+      .maybeSingle();
+    if (error || !updated) {
+      return json({ error: error?.message || "Prompt levels could not be saved." }, 400);
+    }
+    return json({ message: `Prompt levels saved for ${participant.name}.`, promptLevels });
+  }
+
   if (action === "save_goal") {
     const goal = body.goal || {};
     const goalId = String(goal.id || "");

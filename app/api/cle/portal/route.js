@@ -71,7 +71,7 @@ export async function GET(request) {
   const { data: participant, error: participantError } = await admin
     .from("participants")
     .select(`
-      id, name, cle_email, note_delivery_preference, note_delivery_preferences, active,
+      id, name, cle_email, note_delivery_preference, note_delivery_preferences, prompt_levels, active,
       participant_services (id, service_name, active),
       participant_goals (
         id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,

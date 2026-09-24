@@ -9,6 +9,22 @@ const DELIVERY_OPTIONS = [
   { value: "weekly", label: "Weekly digest" },
   { value: "monthly", label: "Monthly archive" },
 ];
+const DEFAULT_PROMPT_LEVELS = [
+  "Independent",
+  "Verbal Prompt",
+  "Gesture Prompt",
+  "Modeling",
+  "Partial Physical Prompt",
+  "Hand Over Hand",
+  "Full Physical Prompt",
+];
+
+function previewPromptLevels(participant) {
+  const levels = Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length
+    ? participant.prompt_levels
+    : DEFAULT_PROMPT_LEVELS;
+  return [...new Set(levels.map((level) => String(level || "").trim()).filter(Boolean))];
+}
 
 function formatDate(value) {
   if (!value) return "Not set";
@@ -106,6 +122,7 @@ export default function AdminClePreviewPage() {
         ),
       }));
   }, [participant]);
+  const selectedPromptLevels = previewPromptLevels(participant);
 
   const workerOptions = Array.from(
     new Set(notes.map((note) => note.workers?.name).filter(Boolean))
@@ -405,6 +422,42 @@ export default function AdminClePreviewPage() {
               <button type="button" disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Goal</button>
               <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
             </div>
+          </section>
+
+          <section style={cardStyle}>
+            <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
+            <p style={{ color: "#5d6878", marginTop: 0 }}>
+              The CLE can choose which prompt levels workers see whenever a goal requires a prompt level.
+            </p>
+            <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
+              {DEFAULT_PROMPT_LEVELS.concat(selectedPromptLevels.filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level))).map((level, index) => {
+                const selected = selectedPromptLevels.includes(level);
+                return (
+                  <label
+                    key={level}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 11,
+                      padding: "10px 12px",
+                      borderRadius: 9,
+                      border: `1px solid ${selected ? "var(--dn-pink)" : "var(--dn-border)"}`,
+                      background: selected ? "var(--dn-pink-pale)" : "white",
+                    }}
+                  >
+                    <input type="checkbox" checked={selected} disabled readOnly />
+                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 27, height: 27, borderRadius: 14, background: selected ? "var(--dn-yellow)" : "var(--dn-blue-pale)", color: "#1f2937", fontSize: 13, fontWeight: 800 }}>
+                      {index + 1}
+                    </span>
+                    <strong>{level}</strong>
+                  </label>
+                );
+              })}
+            </div>
+            <button type="button" disabled style={{ ...disabledButtonStyle, marginTop: 14, background: "var(--dn-primary)", color: "white" }}>
+              Save Prompt Levels
+            </button>
+            <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
           </section>
 
           <section style={cardStyle}>

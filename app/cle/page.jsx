@@ -10,6 +10,46 @@ const SERVICE_CODES = {
   "Day Respite": "W9798",
   "15-Minute Respite": "W9862",
 };
+const DEFAULT_PROMPT_LEVELS = [
+  "Independent",
+  "Verbal Prompt",
+  "Gesture Prompt",
+  "Modeling",
+  "Partial Physical Prompt",
+  "Hand Over Hand",
+  "Full Physical Prompt",
+];
+const PROMPT_ALIASES = {
+  independent: "Independent",
+  verbal: "Verbal Prompt",
+  "verbal prompt": "Verbal Prompt",
+  gesture: "Gesture Prompt",
+  gestural: "Gesture Prompt",
+  "gesture prompt": "Gesture Prompt",
+  model: "Modeling",
+  modeling: "Modeling",
+  pp: "Partial Physical Prompt",
+  "partial physical": "Partial Physical Prompt",
+  "partial physical prompt": "Partial Physical Prompt",
+  hoh: "Hand Over Hand",
+  "hand over hand": "Hand Over Hand",
+  "hand over hand prompt": "Hand Over Hand",
+  fp: "Full Physical Prompt",
+  "full physical": "Full Physical Prompt",
+  "full physical prompt": "Full Physical Prompt",
+};
+
+function normalizePromptLevel(value) {
+  const cleaned = String(value || "").trim().replace(/[–—-]/g, " ").replace(/\s+/g, " ");
+  return PROMPT_ALIASES[cleaned.toLowerCase()] || cleaned;
+}
+
+function participantPromptLevels(participant) {
+  const stored = Array.isArray(participant?.prompt_levels) && participant.prompt_levels.length
+    ? participant.prompt_levels
+    : DEFAULT_PROMPT_LEVELS;
+  return [...new Set(stored.map(normalizePromptLevel).filter(Boolean))];
+}
 
 const DELIVERY_OPTIONS = [
   { value: "immediate", label: "Email each note when submitted" },
@@ -57,6 +97,8 @@ export default function ClePortalPage() {
   const [renamingCategory, setRenamingCategory] = useState("");
   const [categoryRenameDraft, setCategoryRenameDraft] = useState("");
   const [savingCategoryRename, setSavingCategoryRename] = useState(false);
+  const [selectedPromptLevels, setSelectedPromptLevels] = useState(DEFAULT_PROMPT_LEVELS);
+  const [savingPromptLevels, setSavingPromptLevels] = useState(false);
   const [goalDraft, setGoalDraft] = useState({
     categoryName: "",
     goalLabel: "",
@@ -92,6 +134,7 @@ export default function ClePortalPage() {
     }
 
     setParticipant(result.participant);
+    setSelectedPromptLevels(participantPromptLevels(result.participant));
     setGoalDraft((current) => current.goalLabel || current.categoryName
       ? current
       : {
@@ -376,6 +419,34 @@ export default function ClePortalPage() {
       setMessage(`Could not rename category: ${error.message}`);
     } finally {
       setSavingCategoryRename(false);
+    }
+  }
+
+  const availablePromptLevels = [
+    ...DEFAULT_PROMPT_LEVELS,
+    ...participantPromptLevels(participant).filter((level) => !DEFAULT_PROMPT_LEVELS.includes(level)),
+  ];
+
+  function togglePromptLevel(level) {
+    setSelectedPromptLevels((current) =>
+      current.includes(level) ? current.filter((item) => item !== level) : [...current, level]
+    );
+  }
+
+  async function savePromptLevels() {
+    if (!selectedPromptLevels.length) return setMessage("Choose at least one prompt level.");
+    setSavingPromptLevels(true);
+    setMessage("");
+    try {
+      const ordered = availablePromptLevels.filter((level) => selectedPromptLevels.includes(level));
+      const result = await callGoalConfig({ action: "save_prompt_levels", promptLevels: ordered });
+      setSelectedPromptLevels(result.promptLevels || ordered);
+      setParticipant((current) => current ? { ...current, prompt_levels: result.promptLevels || ordered } : current);
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(`Could not save prompt levels: ${error.message}`);
+    } finally {
+      setSavingPromptLevels(false);
     }
   }
 
@@ -838,6 +909,45 @@ export default function ClePortalPage() {
                 {editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondaryButtonStyle}>Cancel</button>}
               </div>
             </form>
+          </section>
+
+          <section style={cardStyle}>
+            <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
+            <p style={{ color: "#5d6878", marginTop: 0 }}>
+              Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.
+            </p>
+            <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
+              {availablePromptLevels.map((level, index) => (
+                <label
+                  key={level}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 11,
+                    padding: "10px 12px",
+                    borderRadius: 9,
+                    border: `1px solid ${selectedPromptLevels.includes(level) ? "var(--dn-pink)" : "var(--dn-border)"}`,
+                    background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "white",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input type="checkbox" checked={selectedPromptLevels.includes(level)} onChange={() => togglePromptLevel(level)} />
+                  <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 27, height: 27, borderRadius: 14, background: selectedPromptLevels.includes(level) ? "var(--dn-yellow)" : "var(--dn-blue-pale)", color: "#1f2937", fontSize: 13, fontWeight: 800 }}>
+                    {index + 1}
+                  </span>
+                  <strong>{level}</strong>
+                </label>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={savePromptLevels}
+              disabled={savingPromptLevels || !selectedPromptLevels.length}
+              style={{ ...primaryButtonStyle, marginTop: 14, opacity: savingPromptLevels || !selectedPromptLevels.length ? 0.55 : 1 }}
+            >
+              {savingPromptLevels ? "Saving..." : "Save Prompt Levels"}
+            </button>
+            {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
           </section>
 
           <section style={cardStyle}>
