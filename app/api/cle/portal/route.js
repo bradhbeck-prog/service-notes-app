@@ -62,11 +62,9 @@ export async function GET(request) {
     error: userError,
   } = await admin.auth.getUser(accessToken);
 
-  if (userError || !user?.email) {
+  if (userError || !user) {
     return json({ error: "Your login session is invalid or expired." }, 401);
   }
-
-  const email = user.email.trim().toLowerCase();
 
   const { data: participant, error: participantError } = await admin
     .from("participants")
@@ -79,7 +77,7 @@ export async function GET(request) {
       )
     `)
     .eq("active", true)
-    .ilike("cle_email", email)
+    .eq("cle_auth_user_id", user.id)
     .limit(1)
     .maybeSingle();
 
@@ -195,13 +193,11 @@ export async function PATCH(request) {
     return json({ error: "Your login session is invalid or expired." }, 401);
   }
 
-  const email = user.email.trim().toLowerCase();
-
   const { data: participant, error: participantError } = await admin
     .from("participants")
     .select("id")
     .eq("active", true)
-    .ilike("cle_email", email)
+    .eq("cle_auth_user_id", user.id)
     .limit(1)
     .maybeSingle();
 

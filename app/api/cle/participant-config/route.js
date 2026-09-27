@@ -21,7 +21,7 @@ async function getCleContext(request) {
     auth: { autoRefreshToken: false, persistSession: false },
   });
   const { data: { user }, error: userError } = await admin.auth.getUser(accessToken);
-  if (userError || !user?.email) {
+  if (userError || !user) {
     return { response: json({ error: "Your login session is invalid or expired." }, 401) };
   }
 
@@ -29,7 +29,7 @@ async function getCleContext(request) {
     .from("participants")
     .select("id, name")
     .eq("active", true)
-    .ilike("cle_email", user.email.trim().toLowerCase())
+    .eq("cle_auth_user_id", user.id)
     .limit(1)
     .maybeSingle();
   if (participantError || !participant) {

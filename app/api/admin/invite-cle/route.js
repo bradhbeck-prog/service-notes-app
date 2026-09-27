@@ -71,6 +71,7 @@ export async function POST(request) {
     .from("participants")
     .select("id, name, cle_email, cle_auth_user_id, active")
     .eq("id", participantId)
+    .eq("workspace_id", membership.workspace_id)
     .eq("active", true)
     .maybeSingle();
 

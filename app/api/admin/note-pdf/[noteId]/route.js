@@ -121,6 +121,7 @@ export async function GET(request, { params }) {
         id,
         name,
         cle_email,
+        workspace_id,
         participant_goals(
           id,
           goal_label,
@@ -154,6 +155,9 @@ export async function GET(request, { params }) {
   }
 
   const participant = note.participants || {};
+  if (participant.workspace_id !== membership.workspace_id) {
+    return responseText("Submitted service note not found.", 404);
+  }
   const outcome = participant.participant_outcomes?.[0] || {};
 
   const pdfResponse = await fetch(new URL("/api/generate-pdf", request.url), {

@@ -105,7 +105,7 @@ async function handleLogin(e) {
   const { data: cleParticipant, error: cleError } = await supabase
     .from("participants")
     .select("id")
-    .ilike("cle_email", normalizedEmail)
+    .eq("cle_auth_user_id", user.id)
     .eq("active", true)
     .limit(1)
     .maybeSingle();

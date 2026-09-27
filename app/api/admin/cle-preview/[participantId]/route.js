@@ -96,6 +96,7 @@ export async function GET(request, { params }) {
       )
     `)
     .eq("id", participantId)
+    .eq("workspace_id", membership.workspace_id)
     .maybeSingle();
 
   if (participantError || !participant) {

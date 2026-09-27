@@ -144,13 +144,91 @@ const [saving, setSaving] = useState(false);
 const [currentNoteId, setCurrentNoteId] = useState(null);
 const [hasDraft, setHasDraft] = useState(false);
 const [loadingDraft, setLoadingDraft] = useState(true);
+const [draftParticipantIds, setDraftParticipantIds] = useState([]);
+
+function resetEditorForParticipant(participant) {
+  const firstService = participant?.participant_services?.find((item) => item.active);
+  setCurrentNoteId(null);
+  setHasDraft(false);
+  setSelectedParticipant(participant);
+  setService(firstService?.service_name || "");
+  setShiftDate(getTodayDate());
+  setTimeIn(getCurrentTime());
+  setTimeOut(getCurrentTime());
+  setLocation("community");
+  setNoteText("");
+  setSelectedGoals([]);
+  setGoalDetails({});
+  setPromptLevels({});
+  setTypedSignature("");
+  setDrawnSignature("");
+  setSignatureMode("typed");
+  setSignatureAttested(false);
+  sigCanvasRef.current?.clear?.();
+}
+
+function applyDraftToEditor(draft, participant) {
+  const firstService = participant?.participant_services?.find((item) => item.active);
+  setCurrentNoteId(draft.id);
+  setHasDraft(true);
+  setSelectedParticipant(participant);
+  setService(draft.service || firstService?.service_name || "");
+  setShiftDate(draft.shift_date || getTodayDate());
+  setTimeIn(draft.time_in || getCurrentTime());
+  setTimeOut(draft.time_out || getCurrentTime());
+  setLocation(draft.location || "community");
+  setNoteText(draft.narrative || "");
+  setSelectedGoals(Array.isArray(draft.goals) ? draft.goals.map(String) : []);
+  setGoalDetails(normalizeGoalDetails(draft.goal_details));
+  setPromptLevels(normalizeGoalDetails(draft.prompt_levels));
+  setTypedSignature(draft.worker_typed_signature || "");
+  setDrawnSignature(draft.worker_drawn_signature || "");
+  setSignatureMode(draft.worker_signature_mode === "draw" ? "draw" : "typed");
+  setSignatureAttested(false);
+}
+
+async function openParticipant(participant, workerOverride = worker) {
+  if (!participant || !workerOverride?.id) return;
+  setLoadingDraft(true);
+  setMessage("");
+
+  const { data: draft, error } = await supabase
+    .from("service_notes")
+    .select("*")
+    .eq("worker_id", workerOverride.id)
+    .eq("participant_id", participant.id)
+    .eq("status", "draft")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Load participant draft error:", error);
+    resetEditorForParticipant(participant);
+    setMessage("The saved draft could not be loaded. You can still start a new note.");
+  } else if (draft) {
+    applyDraftToEditor(draft, participant);
+  } else {
+    resetEditorForParticipant(participant);
+  }
+
+  setLoadingDraft(false);
+}
 
 
 async function loadParticipantsForWorker(workerData) {
-  const { data: assignmentRows } = await supabase
+  setMessage("");
+  const { data: assignmentRows, error: assignmentError } = await supabase
     .from("worker_participants")
     .select("participant_id")
     .eq("worker_id", workerData.id);
+
+  if (assignmentError) {
+    setParticipants([]);
+    setMessage(`Assigned participants could not be loaded: ${assignmentError.message}`);
+    setLoadingDraft(false);
+    return;
+  }
 
   const participantIds = (assignmentRows || []).map((row) => row.participant_id);
 
@@ -161,7 +239,7 @@ async function loadParticipantsForWorker(workerData) {
     return;
   }
 
-  const { data: participantRows } = await supabase
+  const { data: participantRows, error: participantError } = await supabase
     .from("participants")
     .select(`
       *,
@@ -191,17 +269,35 @@ async function loadParticipantsForWorker(workerData) {
     .in("id", participantIds)
     .eq("active", true);
 
-  setParticipants(participantRows || []);
-
-  if (participantRows?.length === 1) {
-    const participant = participantRows[0];
-    setSelectedParticipant(participant);
-
-    const firstService = participant.participant_services?.find((s) => s.active);
-    setService(firstService?.service_name || "");
+  if (participantError) {
+    setParticipants([]);
+    setMessage(`Participant information could not be loaded: ${participantError.message}`);
+    setLoadingDraft(false);
+    return;
   }
 
-  setMessage("");
+  setParticipants(participantRows || []);
+
+  const { data: draftRows, error: draftError } = await supabase
+    .from("service_notes")
+    .select("participant_id")
+    .eq("worker_id", workerData.id)
+    .eq("status", "draft")
+    .in("participant_id", participantIds);
+
+  if (!draftError) {
+    setDraftParticipantIds([...new Set((draftRows || []).map((row) => row.participant_id))]);
+  }
+
+  if (participantRows?.length === 1) {
+    await openParticipant(participantRows[0], workerData);
+  } else {
+    setSelectedParticipant(null);
+    setCurrentNoteId(null);
+    setHasDraft(false);
+    setLoadingDraft(false);
+  }
+
 }
 
 
@@ -237,65 +333,6 @@ useEffect(() => {
   loadLoggedInWorker();
 }, []);
 
-
-useEffect(() => {
-  if (!worker) return;
-  if (!participants.length) return;
-
-  const loadDraft = async () => {
-    setLoadingDraft(true);
-
-    const { data, error } = await supabase
-      .from("service_notes")
-      .select("*")
-      .eq("worker_id", worker.id)
-      .eq("status", "draft")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Load draft error:", error);
-      setLoadingDraft(false);
-      return;
-    }
-
-    if (!data) {
-      setLoadingDraft(false);
-      return;
-    }
-
-    setHasDraft(true);
-    setCurrentNoteId(data.id);
-
-    const matchingParticipant = participants.find(
-      (p) => p.id === data.participant_id
-    );
-
-    if (!matchingParticipant) {
-      setLoadingDraft(false);
-      return;
-    }
-
-    const firstService = matchingParticipant.participant_services?.find(
-      (s) => s.active
-    );
-
-    setSelectedParticipant(matchingParticipant);
-    setService(data.service || firstService?.service_name || "");
-    setShiftDate(data.shift_date || getTodayDate());
-    setTimeIn(data.time_in || getCurrentTime());
-    setTimeOut(data.time_out || getCurrentTime());
-    setLocation(data.location || "community");
-    setNoteText(data.narrative || "");
-    setSelectedGoals(Array.isArray(data.goals) ? data.goals.map(String) : []);
-    setGoalDetails(normalizeGoalDetails(data.goal_details));
-    setPromptLevels(normalizeGoalDetails(data.prompt_levels));
-    setLoadingDraft(false);
-  };
-
-  loadDraft();
-}, [worker, participants]);
 
   async function handleLogin() {
     setMessage("");
@@ -463,11 +500,16 @@ async function handleSubmitNote() {
   signature_attested: true,
 };
 
-    const { data: noteInsert, error } = await supabase
-      .from("service_notes")
-      .insert([insertPayload])
-.select()
-.maybeSingle();
+    const noteQuery = currentNoteId
+      ? supabase
+          .from("service_notes")
+          .update(insertPayload)
+          .eq("id", currentNoteId)
+          .eq("worker_id", worker.id)
+          .eq("participant_id", selectedParticipant.id)
+      : supabase.from("service_notes").insert([insertPayload]);
+
+    const { data: noteInsert, error } = await noteQuery.select().maybeSingle();
 
     if (error) {
       console.log("SUPABASE ERROR:", error);
@@ -475,6 +517,10 @@ async function handleSubmitNote() {
       setMessage(`Error saving note: ${error.message}`);
       return;
     }
+
+    setCurrentNoteId(null);
+    setHasDraft(false);
+    setDraftParticipantIds((current) => current.filter((id) => id !== selectedParticipant.id));
 
     if (selectedGoals.length > 0) {
       const goalRows = selectedGoals.map((goalId) => ({
@@ -1242,7 +1288,7 @@ onChange={(e) => {
             fontWeight: 600,
           }}
         >
-          Back
+          Choose Another Person
         </button>
       </div>
 
@@ -1348,11 +1394,14 @@ async function handleSaveDraft() {
     noteId = data.id;
     setCurrentNoteId(data.id);
     setHasDraft(true);
+    setDraftParticipantIds((current) => [...new Set([...current, participantId])]);
   } else {
     const { error } = await supabase
       .from("service_notes")
       .update(payload)
-      .eq("id", noteId);
+      .eq("id", noteId)
+      .eq("worker_id", worker.id)
+      .eq("participant_id", participantId);
 
     if (error) {
       console.error("Update draft error:", error);
@@ -1360,6 +1409,7 @@ async function handleSaveDraft() {
       setMessage(error.message);
       return;
     }
+    setDraftParticipantIds((current) => [...new Set([...current, participantId])]);
   }
 
   setSaving(false);
@@ -1378,7 +1428,9 @@ async function handleSaveDraft() {
     const { error } = await supabase
       .from("service_notes")
       .delete()
-      .eq("id", currentNoteId);
+      .eq("id", currentNoteId)
+      .eq("worker_id", worker.id)
+      .eq("participant_id", selectedParticipant?.id);
 
     setSaving(false);
 
@@ -1389,6 +1441,7 @@ async function handleSaveDraft() {
 
     setCurrentNoteId(null);
     setHasDraft(false);
+    setDraftParticipantIds((current) => current.filter((id) => id !== selectedParticipant?.id));
     setSelectedParticipant(null);
     setNoteText("");
     setShiftDate(getTodayDate());
@@ -1425,21 +1478,23 @@ async function handleSaveDraft() {
             {participants.map((participant) => (
               <button
                 key={participant.id}
-                onClick={async () => {
-                  setSelectedParticipant(participant);
-
-                  const firstService = participant.participant_services?.find((s) => s.active);
-                  if (firstService) setService(firstService.service_name);
-
-                }}
+                onClick={() => openParticipant(participant)}
                 style={{
                   padding: 12,
                   fontSize: 16,
                   textAlign: "left",
                   cursor: "pointer",
+                  borderRadius: 10,
+                  border: "1px solid var(--dn-border)",
+                  background: draftParticipantIds.includes(participant.id) ? "var(--dn-yellow-pale)" : "#ffffff",
                 }}
               >
-                {participant.name}
+                <strong>{participant.name}</strong>
+                {draftParticipantIds.includes(participant.id) && (
+                  <span style={{ display: "block", marginTop: 4, color: "#92400e", fontSize: 14 }}>
+                    Saved draft — tap to resume
+                  </span>
+                )}
               </button>
             ))}
           </div>

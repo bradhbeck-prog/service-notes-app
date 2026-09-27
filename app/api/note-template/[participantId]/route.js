@@ -51,6 +51,8 @@ export async function GET(request, { params }) {
       id,
       name,
       cle_email,
+      cle_auth_user_id,
+      workspace_id,
       prompt_levels,
       active,
       participant_outcomes (
@@ -86,16 +88,15 @@ export async function GET(request, { params }) {
 
   const { data: membership } = await admin
     .from("workspace_memberships")
-    .select("role")
+    .select("workspace_id, role")
     .eq("user_id", user.id)
     .eq("active", true)
     .in("role", ["owner", "admin"])
     .limit(1)
     .maybeSingle();
 
-  const userEmail = user.email.trim().toLowerCase();
-  const cleEmail = String(participant.cle_email || "").trim().toLowerCase();
-  const canView = Boolean(membership) || (cleEmail && cleEmail === userEmail);
+  const canView = membership?.workspace_id === participant.workspace_id
+    || participant.cle_auth_user_id === user.id;
 
   if (!canView) {
     return json({ error: "You do not have permission to view this note template." }, 403);

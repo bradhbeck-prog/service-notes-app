@@ -121,13 +121,11 @@ export async function GET(request) {
     return responseText("Your login session is invalid or expired.", 401);
   }
 
-  const email = user.email.trim().toLowerCase();
-
   const { data: participant, error: participantError } = await admin
     .from("participants")
     .select("id, name, cle_email")
     .eq("active", true)
-    .ilike("cle_email", email)
+    .eq("cle_auth_user_id", user.id)
     .limit(1)
     .maybeSingle();
 

@@ -52,13 +52,11 @@ export async function DELETE(request) {
     return json({ error: "Your login session is invalid or expired." }, 401);
   }
 
-  const email = user.email.trim().toLowerCase();
-
   const { data: participant, error: participantError } = await admin
     .from("participants")
     .select("id")
     .eq("active", true)
-    .ilike("cle_email", email)
+    .eq("cle_auth_user_id", user.id)
     .limit(1)
     .maybeSingle();
 
