@@ -60,7 +60,16 @@ export async function POST(request) {
     .limit(1)
     .maybeSingle();
 
-  if (!worker && !cleParticipant) {
+  const { data: supportCoordinator } = await admin
+    .from("support_coordinators")
+    .select("id, name, email, auth_user_id, active")
+    .ilike("email", email)
+    .eq("active", true)
+    .not("auth_user_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+
+  if (!worker && !cleParticipant && !supportCoordinator) {
     return json({ message: GENERIC_MESSAGE });
   }
 
@@ -75,7 +84,7 @@ export async function POST(request) {
     try {
       await sendPasswordHelpEmail({
         to: email,
-        name: worker?.name || "there",
+        name: worker?.name || supportCoordinator?.name || "there",
         actionLink: protectedLink,
       });
     } catch {

@@ -87,6 +87,14 @@ export default function AdminDashboard() {
   const [renamingCategory, setRenamingCategory] = useState("");
   const [categoryRenameDraft, setCategoryRenameDraft] = useState("");
   const [savingCategoryRename, setSavingCategoryRename] = useState(false);
+  const [savingOutcome, setSavingOutcome] = useState(false);
+  const [editingOutcomeId, setEditingOutcomeId] = useState("");
+  const [outcomeDraft, setOutcomeDraft] = useState({ phrase: "", statement: "", actionPlan: "" });
+  const [supportCoordinators, setSupportCoordinators] = useState([]);
+  const [coordinatorAssignments, setCoordinatorAssignments] = useState([]);
+  const [coordinatorForm, setCoordinatorForm] = useState({ id: "", name: "", email: "" });
+  const [savingCoordinator, setSavingCoordinator] = useState(false);
+  const [coordinatorSetupLink, setCoordinatorSetupLink] = useState("");
   const [goalDraft, setGoalDraft] = useState({
     categoryName: "",
     goalLabel: "",
@@ -131,7 +139,15 @@ export default function AdminDashboard() {
       .select("id, name, email, auth_user_id, active")
       .eq("active", true)
       .order("name");
+    const coordinatorResponse = await fetch("/api/admin/support-coordinators", {
+      headers: { Authorization: `Bearer ${session?.access_token || ""}` }, cache: "no-store",
+    });
+    const coordinatorResult = await coordinatorResponse.json();
     setParticipants(participantRows || []); setAssignments(assignmentRows || []); setWorkers(workerRows || []);
+    if (coordinatorResponse.ok) {
+      setSupportCoordinators(coordinatorResult.coordinators || []);
+      setCoordinatorAssignments(coordinatorResult.assignments || []);
+    }
     setSelectedId((current) => current || participantRows?.[0]?.id || "");
     setNewWorker((current) => ({ ...current, participantId: current.participantId || participantRows?.[0]?.id || "" }));
     setLoading(false);
@@ -142,6 +158,8 @@ export default function AdminDashboard() {
   const participant = participants.find((p) => p.id === selectedId);
   const assignedWorkerIds = assignments.filter((a) => a.participant_id === selectedId).map((a) => a.worker_id);
   const assignedWorkers = workers.filter((w) => assignedWorkerIds.includes(w.id));
+  const assignedCoordinatorIds = coordinatorAssignments.filter((item) => item.participant_id === selectedId).map((item) => item.support_coordinator_id);
+  const assignedCoordinators = supportCoordinators.filter((item) => assignedCoordinatorIds.includes(item.id));
   const participantNames = (workerId) => { const ids = assignments.filter((a) => a.worker_id === workerId).map((a) => a.participant_id); return participants.filter((p) => ids.includes(p.id)).map((p) => p.name); };
   const activeParticipantServices = (participant?.participant_services || []).filter((service) => service.active && !HIDDEN_LEGACY_SERVICES.has(normalize(service.service_name)));
   const hasActiveLegacyService = (participant?.participant_services || []).some((service) => service.active && HIDDEN_LEGACY_SERVICES.has(normalize(service.service_name)));
@@ -223,7 +241,7 @@ export default function AdminDashboard() {
   const groupedGoals = useMemo(() => {
     const groups = new Map();
     for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
-      const category = goal.category_name?.trim() || "Goals";
+      const category = goal.category_name?.trim() || "Uncategorized";
       const categoryKey = category.toLocaleLowerCase();
       if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
       groups.get(categoryKey).goals.push(goal);
@@ -253,7 +271,7 @@ export default function AdminDashboard() {
         ? [goal.participant_service_id]
         : activeServiceIds;
     setGoalDraft({
-      categoryName: goal.category_name || "Goals",
+      categoryName: goal.category_name || "Uncategorized",
       goalLabel: goal.goal_label || "",
       serviceIds: storedServiceIds.filter((id) => activeServiceIds.includes(id)),
       requiresDetail: Boolean(goal.requires_detail),
@@ -265,7 +283,7 @@ export default function AdminDashboard() {
 
   async function saveGoal(event) {
     event.preventDefault();
-    const categoryName = goalDraft.categoryName.trim() || "Goals";
+    const categoryName = goalDraft.categoryName.trim() || "Uncategorized";
     const goalLabel = goalDraft.goalLabel.trim();
     if (!participant || !goalLabel) return setMessage("Enter the goal description.");
     if (activeParticipantServices.length && !goalDraft.serviceIds.length) {
@@ -354,6 +372,69 @@ export default function AdminDashboard() {
     } finally {
       setSavingCategoryRename(false);
     }
+  }
+
+  async function removeCategory(group) {
+    if (!window.confirm(`Remove the category “${group.category}”? Its goals will stay on the note under Uncategorized.`)) return;
+    try {
+      const result = await callParticipantConfig({ action: "remove_category", category: group.category, goalIds: group.goals.map((goal) => goal.id) });
+      if (goalDraft.categoryName.trim().toLocaleLowerCase() === group.category.toLocaleLowerCase()) {
+        setGoalDraft((current) => ({ ...current, categoryName: "Uncategorized" }));
+      }
+      setMessage(result.message); await loadData();
+    } catch (error) { setMessage(`Could not remove category: ${error.message}`); }
+  }
+
+  function editOutcome(outcome) {
+    setEditingOutcomeId(outcome.id);
+    setOutcomeDraft({ phrase: outcome.outcome_phrase || "", statement: outcome.outcome_statement || "", actionPlan: outcome.outcome_action_plan || "" });
+  }
+  function clearOutcome() {
+    setEditingOutcomeId(""); setOutcomeDraft({ phrase: "", statement: "", actionPlan: "" });
+  }
+  async function saveOutcome(event) {
+    event.preventDefault(); setSavingOutcome(true); setMessage("");
+    try {
+      const result = await callParticipantConfig({ action: "save_outcome", outcome: { id: editingOutcomeId || null, ...outcomeDraft } });
+      clearOutcome(); setMessage(result.message); await loadData();
+    } catch (error) { setMessage(`Could not save outcome: ${error.message}`); }
+    finally { setSavingOutcome(false); }
+  }
+  async function deleteOutcome(outcome) {
+    if (!window.confirm("Remove this outcome reference? This does not remove any goals or service notes.")) return;
+    try {
+      const result = await callParticipantConfig({ action: "delete_outcome", outcomeId: outcome.id });
+      if (editingOutcomeId === outcome.id) clearOutcome(); setMessage(result.message); await loadData();
+    } catch (error) { setMessage(`Could not remove outcome: ${error.message}`); }
+  }
+
+  async function callCoordinator(payload) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const response = await fetch("/api/admin/support-coordinators", {
+      method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token || ""}` },
+      body: JSON.stringify({ participantId: participant?.id, ...payload }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "Support Coordinator access could not be updated.");
+    return result;
+  }
+  async function assignCoordinator(event) {
+    event.preventDefault(); setSavingCoordinator(true); setCoordinatorSetupLink(""); setMessage("");
+    try {
+      const result = await callCoordinator({ action: "assign", coordinatorId: coordinatorForm.id || null, name: coordinatorForm.name, email: coordinatorForm.email });
+      setMessage(result.warning ? `${result.message} (${result.warning})` : result.message);
+      setCoordinatorSetupLink(result.setupLink || ""); setCoordinatorForm({ id: "", name: "", email: "" }); await loadData();
+    } catch (error) { setMessage(error.message); }
+    finally { setSavingCoordinator(false); }
+  }
+  async function coordinatorAction(action, coordinator) {
+    setSavingCoordinator(true); setCoordinatorSetupLink(""); setMessage("");
+    try {
+      const result = await callCoordinator({ action, coordinatorId: coordinator.id });
+      setMessage(result.warning ? `${result.message} (${result.warning})` : result.message);
+      setCoordinatorSetupLink(result.setupLink || ""); await loadData();
+    } catch (error) { setMessage(error.message); }
+    finally { setSavingCoordinator(false); }
   }
 
   async function addAndInvite(event) {
@@ -448,8 +529,8 @@ export default function AdminDashboard() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(145px,1fr))", gap: 10, margin: "20px 0" }}><Summary value={assignedWorkers.length} label="Assigned workers" /><Summary value={(participant.participant_goals || []).filter((g) => g.active).length} label="Active goals" /><Summary value={(participant.participant_services || []).filter((s) => s.active).length || (participant.service_name ? 1 : 0)} label="Services" /></div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><Link href="#goals" style={button}>Manage Goals</Link><Link href={`/admin/cle-preview/${participant.id}`} style={secondary}>Preview CLE Portal</Link><Link href={`/note-template/${participant.id}?returnTo=${encodeURIComponent("/admin")}`} style={secondary}>View Blank Note</Link>{participant.cle_email && <button type="button" onClick={sendCleAccess} disabled={sendingCleAccess} style={{ ...secondary, opacity: sendingCleAccess ? .6 : 1 }}>{sendingCleAccess ? "Preparing CLE link…" : participant.cle_auth_user_id ? "Send CLE Password Help" : "Send CLE Setup Link"}</button>}</div>
         </section>
-        <section style={{ ...card, marginTop: 18 }}>
-          <h2 style={{ margin: "0 0 5px" }}>Services</h2>
+        <details open style={{ ...card, marginTop: 18 }}>
+          <summary style={summaryStyle}>Services</summary>
           <p style={{ color: C.muted, marginTop: 0 }}>Choose the services {participant.name} receives. Workers will select one of these when starting a note.</p>
           <div style={{ display: "grid", gap: 8, maxWidth: 650 }}>
             {[...new Set([...SERVICE_CATALOG.map((service) => service.name), ...(participant.participant_services || []).map((service) => service.service_name)])].filter((serviceName) => !HIDDEN_LEGACY_SERVICES.has(normalize(serviceName))).map((serviceName) => <label key={serviceName} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedServiceNames.includes(serviceName) ? C.blue : C.border}`, background: selectedServiceNames.includes(serviceName) ? "var(--dn-blue-pale)" : "white", cursor: "pointer" }}>
@@ -462,13 +543,34 @@ export default function AdminDashboard() {
           {serviceMessage && <div role="status" style={{ marginTop: 12, padding: 12, borderRadius: 8, background: serviceMessage.startsWith("Could not") ? "#fff0f0" : "#e8faf3", border: `1px solid ${serviceMessage.startsWith("Could not") ? "#d88" : C.teal}`, fontWeight: 700 }}>{serviceMessage}</div>}
           {!selectedServiceNames.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one service is required.</p>}
           {servicesDirty && selectedServiceNames.length > 0 && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", color: C.ink, fontWeight: 700 }}>Save these service changes before adding or editing goals.</p>}
-        </section>
-        <section id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><div><h2 style={{ margin: 0 }}>Goals</h2><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p></div><button disabled={servicesDirty} onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={{ ...button, opacity: servicesDirty ? .5 : 1 }}>Add Goal</button></div>
+        </details>
+        <details open style={{ ...card, marginTop: 18 }}>
+          <summary style={summaryStyle}>Outcomes (Reference Only)</summary>
+          <p style={{ color: C.muted }}>A participant may have more than one outcome reference. These are not tied to goal categories and are not printed on finalized service-note PDFs.</p>
+          <div style={{ display: "grid", gap: 10 }}>
+            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: `1px solid ${C.border}`, borderRadius: 10, background: C.pale }}>
+              <strong>{outcome.outcome_phrase || "Outcome reference"}</strong>
+              {outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}
+              {outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: C.muted }}>{outcome.outcome_action_plan}</p>}
+              <div style={{ display: "flex", gap: 8 }}><button onClick={() => editOutcome(outcome)} style={smallButton}>Edit</button><button onClick={() => deleteOutcome(outcome)} style={{ ...smallButton, color: "#9b2c2c" }}>Remove</button></div>
+            </article>)}
+            {!participant.participant_outcomes?.length && <p style={{ color: C.muted }}>No outcome references have been added.</p>}
+          </div>
+          <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 10, background: "var(--dn-blue-pale)" }}>
+            <h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3>
+            <Field label="Short title or phrase"><input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={input} /></Field>
+            <Field label="Outcome statement"><textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
+            <Field label="Action plan / reference notes"><textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
+            <div style={{ display: "flex", gap: 8 }}><button disabled={savingOutcome} style={button}>{savingOutcome ? "Saving…" : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondary}>Cancel</button>}</div>
+          </form>
+        </details>
+        <details open id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
+          <summary style={summaryStyle}>Goals</summary>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p><button disabled={servicesDirty} onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={{ ...button, opacity: servicesDirty ? .5 : 1 }}>Add Goal</button></div>
           {servicesDirty && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", fontWeight: 700 }}>Save the Services section above before changing goals.</p>}
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
             {groupedGoals.map((group) => <section key={group.category} style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: `6px solid ${C.pink}` }}><h3 style={{ margin: 0, color: C.blue }}>{group.category}</h3><button type="button" disabled={servicesDirty || savingCategoryRename} onClick={() => { setRenamingCategory(group.category); setCategoryRenameDraft(group.category); }} style={{ ...smallButton, opacity: servicesDirty || savingCategoryRename ? .45 : 1 }}>Rename</button></div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: `6px solid ${C.pink}` }}><h3 style={{ margin: 0, color: C.blue }}>{group.category}</h3><div style={{ display: "flex", gap: 6 }}><button type="button" disabled={servicesDirty || savingCategoryRename} onClick={() => { setRenamingCategory(group.category); setCategoryRenameDraft(group.category); }} style={{ ...smallButton, opacity: servicesDirty || savingCategoryRename ? .45 : 1 }}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled={servicesDirty} onClick={() => removeCategory(group)} style={{ ...smallButton, color: "#9b2c2c", opacity: servicesDirty ? .45 : 1 }}>Remove Category</button>}</div></div>
               {renamingCategory === group.category && <form onSubmit={(event) => renameCategory(event, group)} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "10px 14px", background: "var(--dn-pink-pale)", borderTop: `1px solid ${C.border}` }}><label style={{ fontWeight: 700 }}>New category name</label><input autoFocus value={categoryRenameDraft} onChange={(event) => setCategoryRenameDraft(event.target.value)} style={{ ...input, flex: "1 1 240px", width: "auto" }} /><button type="submit" disabled={savingCategoryRename || !categoryRenameDraft.trim()} style={{ ...smallButton, background: C.teal, color: "white" }}>{savingCategoryRename ? "Saving…" : "Save"}</button><button type="button" onClick={() => { setRenamingCategory(""); setCategoryRenameDraft(""); }} style={smallButton}>Cancel</button></form>}
               {group.goals.map((goal, index) => {
                 const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
@@ -499,9 +601,9 @@ export default function AdminDashboard() {
             {goalDraft.requiresDetail && <Field label="Detail question"><input value={goalDraft.detailPrompt} onChange={(e) => setGoalDraft({ ...goalDraft, detailPrompt: e.target.value })} placeholder="What should the worker describe?" style={input} /></Field>}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button type="submit" disabled={savingGoal || servicesDirty} style={{ ...button, opacity: savingGoal || servicesDirty ? .6 : 1 }}>{savingGoal ? "Saving…" : editingGoalId ? "Save Changes" : "Add Goal"}</button>{editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondary}>Cancel</button>}</div>
           </form>
-        </section>
-        <section style={{ ...card, marginTop: 18 }}>
-          <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
+        </details>
+        <details style={{ ...card, marginTop: 18 }}>
+          <summary style={summaryStyle}>Prompt Levels</summary>
           <p style={{ color: C.muted, marginTop: 0 }}>Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.</p>
           <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
             {availablePromptLevels.map((level, index) => <label key={level} style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 12px", borderRadius: 9, border: `1px solid ${selectedPromptLevels.includes(level) ? C.pink : C.border}`, background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "white", cursor: "pointer" }}>
@@ -512,8 +614,22 @@ export default function AdminDashboard() {
           </div>
           <button onClick={savePromptLevels} disabled={savingPrompts || !selectedPromptLevels.length} style={{ ...button, marginTop: 14, opacity: savingPrompts || !selectedPromptLevels.length ? .55 : 1 }}>{savingPrompts ? "Saving…" : "Save Prompt Levels"}</button>
           {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
-        </section>
-        <section style={{ ...card, marginTop: 18 }}><h2 style={{ marginTop: 0 }}>Assigned Workers</h2>{assignedWorkers.length ? assignedWorkers.map((w) => <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "13px 0", borderBottom: `1px solid ${C.border}` }}><div><strong>{w.name}</strong><div style={{ color: C.muted }}>{w.email || "No email account linked"}</div><div style={{ color: w.auth_user_id ? C.teal : "#9b6500", fontSize: 13, fontWeight: 700, marginTop: 3 }}>{w.auth_user_id ? "Email/password account linked" : "Setup not completed"}</div></div>{w.email && <button onClick={() => w.auth_user_id ? resetPassword(w) : resendSetup(w)} disabled={resettingId === w.id} style={secondary}>{resettingId === w.id ? "Preparing link…" : w.auth_user_id ? "Send Password Help" : "Send Setup Link"}</button>}</div>) : <p style={{ color: C.muted }}>No workers assigned.</p>}<button onClick={() => { setTab("workers"); setNewWorker((current) => ({ ...current, participantId: participant.id })); }} style={{ ...button, marginTop: 14 }}>Add a Worker</button></section>
+        </details>
+        <details style={{ ...card, marginTop: 18 }}>
+          <summary style={summaryStyle}>Support Coordinator Access</summary>
+          <p style={{ color: C.muted }}>Support Coordinators can view and download submitted notes. They cannot see drafts or change participant settings.</p>
+          {assignedCoordinators.map((coordinator) => <article key={coordinator.id} style={{ padding: "12px 0", borderBottom: `1px solid ${C.border}` }}><strong>{coordinator.name}</strong><div style={{ color: C.muted }}>{coordinator.email}</div><div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>{coordinator.auth_user_id && <button disabled={savingCoordinator} onClick={() => coordinatorAction("send_help", coordinator)} style={secondary}>Send Password Help</button>}<button disabled={savingCoordinator} onClick={() => window.confirm(`Remove ${coordinator.name}'s access to ${participant.name}?`) && coordinatorAction("remove_access", coordinator)} style={{ ...secondary, color: "#9b2c2c" }}>Remove Access</button></div></article>)}
+          {!assignedCoordinators.length && <p style={{ color: C.muted }}>No Support Coordinator has access yet.</p>}
+          <form onSubmit={assignCoordinator} style={{ marginTop: 15, padding: 15, borderRadius: 10, background: C.pale }}>
+            <h3 style={{ marginTop: 0 }}>Assign a Support Coordinator</h3>
+            {supportCoordinators.length > 0 && <Field label="Use an existing coordinator (optional)"><select value={coordinatorForm.id} onChange={(e) => { const chosen = supportCoordinators.find((item) => item.id === e.target.value); setCoordinatorForm(chosen ? { id: chosen.id, name: chosen.name, email: chosen.email } : { id: "", name: "", email: "" }); }} style={input}><option value="">Enter a new coordinator below</option>{supportCoordinators.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.email}</option>)}</select></Field>}
+            <Field label="Name"><input value={coordinatorForm.name} onChange={(e) => setCoordinatorForm({ ...coordinatorForm, name: e.target.value })} style={input} /></Field>
+            <Field label="Email"><input type="email" value={coordinatorForm.email} onChange={(e) => setCoordinatorForm({ ...coordinatorForm, email: e.target.value })} style={input} /></Field>
+            <button disabled={savingCoordinator || !coordinatorForm.name.trim() || !coordinatorForm.email.trim()} style={button}>{savingCoordinator ? "Preparing access…" : "Assign & Send Setup Link"}</button>
+            {coordinatorSetupLink && <div style={{ marginTop: 14 }}><strong>Backup link</strong><textarea readOnly value={coordinatorSetupLink} rows={3} style={{ ...input, marginTop: 6 }} /><button type="button" onClick={() => navigator.clipboard.writeText(coordinatorSetupLink)} style={{ ...secondary, marginTop: 7 }}>Copy Link</button></div>}
+          </form>
+        </details>
+        <details style={{ ...card, marginTop: 18 }}><summary style={summaryStyle}>Assigned Workers</summary>{assignedWorkers.length ? assignedWorkers.map((w) => <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "13px 0", borderBottom: `1px solid ${C.border}` }}><div><strong>{w.name}</strong><div style={{ color: C.muted }}>{w.email || "No email account linked"}</div><div style={{ color: w.auth_user_id ? C.teal : "#9b6500", fontSize: 13, fontWeight: 700, marginTop: 3 }}>{w.auth_user_id ? "Email/password account linked" : "Setup not completed"}</div></div>{w.email && <button onClick={() => w.auth_user_id ? resetPassword(w) : resendSetup(w)} disabled={resettingId === w.id} style={secondary}>{resettingId === w.id ? "Preparing link…" : w.auth_user_id ? "Send Password Help" : "Send Setup Link"}</button>}</div>) : <p style={{ color: C.muted }}>No workers assigned.</p>}<button onClick={() => { setTab("workers"); setNewWorker((current) => ({ ...current, participantId: participant.id })); }} style={{ ...button, marginTop: 14 }}>Add a Worker</button></details>
       </> : <p>Select a participant.</p>}</div>
     </section>}
 
@@ -537,3 +653,4 @@ function Field({ label, children }) { return <label style={{ display: "grid", ga
 const smallButton = { minHeight: 34, padding: "5px 9px", borderRadius: 7, border: `1px solid ${C.border}`, background: "white", color: C.ink, fontWeight: 700, cursor: "pointer" };
 const tag = { display: "inline-block", margin: "7px 6px 0 0", padding: "3px 7px", borderRadius: 12, background: C.pale, color: C.muted, fontSize: 12, border: `1px solid ${C.border}` };
 const checkLabel = { display: "flex", alignItems: "center", gap: 9, margin: "12px 0", fontWeight: 600 };
+const summaryStyle = { cursor: "pointer", fontSize: 23, fontWeight: 800, color: C.ink, marginBottom: 10 };

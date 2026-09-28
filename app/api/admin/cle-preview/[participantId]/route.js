@@ -93,7 +93,8 @@ export async function GET(request, { params }) {
       participant_goals (
         id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
         sort_order, active, requires_detail, requires_prompt_level, detail_prompt
-      )
+      ),
+      participant_outcomes (id, outcome_phrase, outcome_statement, outcome_action_plan)
     `)
     .eq("id", participantId)
     .eq("workspace_id", membership.workspace_id)

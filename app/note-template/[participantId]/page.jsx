@@ -632,21 +632,10 @@ export default function NoteTemplatePreviewPage() {
             </button>
           </div>
 
-          <section style={cardStyle}>
-            <h3 style={{ marginTop: 0 }}>Outcome Information</h3>
-            <p>
-              <strong>Outcome Phrase:</strong>{" "}
-              {participant.participant_outcomes?.[0]?.outcome_phrase || "Not set"}
-            </p>
-            <p>
-              <strong>Outcome Statement:</strong>{" "}
-              {participant.participant_outcomes?.[0]?.outcome_statement || "Not set"}
-            </p>
-            <p>
-              <strong>Outcome Action Plan:</strong>{" "}
-              {participant.participant_outcomes?.[0]?.outcome_action_plan || "Not set"}
-            </p>
-          </section>
+          <details style={cardStyle}>
+            <summary style={{ cursor: "pointer", fontWeight: 800, fontSize: 20 }}>Outcome Information (Reference Only)</summary>
+            {(participant.participant_outcomes || []).length ? participant.participant_outcomes.map((outcome, index) => <div key={outcome.id || index} style={{ marginTop: 12, padding: 12, borderRadius: 9, background: "var(--dn-blue-pale)" }}><p><strong>Outcome Phrase:</strong> {outcome.outcome_phrase || "Not set"}</p><p><strong>Outcome Statement:</strong> {outcome.outcome_statement || "Not set"}</p><p><strong>Outcome Action Plan:</strong> {outcome.outcome_action_plan || "Not set"}</p></div>) : <p>No outcome references are set.</p>}
+          </details>
         </>
       ) : null}
     </main>

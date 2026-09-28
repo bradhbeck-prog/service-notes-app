@@ -120,6 +120,24 @@ async function handleLogin(e) {
     return;
   }
 
+  const { data: supportCoordinator, error: coordinatorError } = await supabase
+    .from("support_coordinators")
+    .select("id")
+    .eq("auth_user_id", user.id)
+    .eq("active", true)
+    .limit(1)
+    .maybeSingle();
+
+  if (coordinatorError) {
+    setMessage(coordinatorError.message);
+    return;
+  }
+
+  if (supportCoordinator) {
+    window.location.href = "/sc";
+    return;
+  }
+
   await supabase.auth.signOut();
   setMessage("This login does not have an active DreamNote role yet.");
 }

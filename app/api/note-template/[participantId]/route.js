@@ -56,6 +56,7 @@ export async function GET(request, { params }) {
       prompt_levels,
       active,
       participant_outcomes (
+        id,
         outcome_phrase,
         outcome_statement,
         outcome_action_plan

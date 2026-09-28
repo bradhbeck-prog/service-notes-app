@@ -244,6 +244,7 @@ async function loadParticipantsForWorker(workerData) {
     .select(`
       *,
       participant_outcomes (
+        id,
         outcome_phrase,
         outcome_statement,
         outcome_action_plan
@@ -369,6 +370,7 @@ useEffect(() => {
       .select(`
         *,
         participant_outcomes (
+          id,
           outcome_phrase,
           outcome_statement,
           outcome_action_plan
@@ -556,10 +558,9 @@ async function handleSubmitNote() {
           timeOut,
           service,
           location,
-          outcomePhrase: selectedParticipant.participant_outcomes?.[0]?.outcome_phrase || "",
-          outcomeStatement: selectedParticipant.participant_outcomes?.[0]?.outcome_statement || "",
-          outcomeActionPlan:
-            selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "",
+          outcomePhrase: "",
+          outcomeStatement: "",
+          outcomeActionPlan: "",
           selectedGoals:
             selectedParticipant.participant_goals
               ?.filter((goal) => selectedGoals.includes(String(goal.id)))
@@ -1292,24 +1293,16 @@ onChange={(e) => {
         </button>
       </div>
 
-      <div style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-        <h3 style={{ marginTop: 0 }}>Outcome Information</h3>
-
-        <p>
-          <strong>Outcome Phrase:</strong>{" "}
-          {selectedParticipant.participant_outcomes?.[0]?.outcome_phrase || "Not set"}
-        </p>
-
-        <p>
-          <strong>Outcome Statement:</strong>{" "}
-          {selectedParticipant.participant_outcomes?.[0]?.outcome_statement || "Not set"}
-        </p>
-
-        <p>
-          <strong>Outcome Action Plan:</strong>{" "}
-          {selectedParticipant.participant_outcomes?.[0]?.outcome_action_plan || "Not set"}
-        </p>
-      </div>
+      <details style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
+        <summary style={{ cursor: "pointer", fontWeight: 800 }}>Outcome Information (Reference Only)</summary>
+        {(selectedParticipant.participant_outcomes || []).length ? selectedParticipant.participant_outcomes.map((outcome, index) => (
+          <div key={outcome.id || index} style={{ marginTop: 12, padding: 12, borderRadius: 8, background: "var(--dn-blue-pale)" }}>
+            <p><strong>Outcome Phrase:</strong> {outcome.outcome_phrase || "Not set"}</p>
+            <p><strong>Outcome Statement:</strong> {outcome.outcome_statement || "Not set"}</p>
+            <p><strong>Outcome Action Plan:</strong> {outcome.outcome_action_plan || "Not set"}</p>
+          </div>
+        )) : <p>No outcome references are set.</p>}
+      </details>
 
       <p style={{ marginTop: 10 }}>{message}</p>
 

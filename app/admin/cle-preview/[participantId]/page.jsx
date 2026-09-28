@@ -115,7 +115,7 @@ export default function AdminClePreviewPage() {
   const groupedGoals = useMemo(() => {
     const groups = new Map();
     for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
-      const category = goal.category_name?.trim() || "Goals";
+      const category = goal.category_name?.trim() || "Uncategorized";
       const categoryKey = category.toLocaleLowerCase();
       if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
       groups.get(categoryKey).goals.push(goal);
@@ -359,7 +359,7 @@ export default function AdminClePreviewPage() {
                 <section key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
-                    <button type="button" disabled style={disabledButtonStyle}>Rename</button>
+                    <div style={{ display: "flex", gap: 6 }}><button type="button" disabled style={disabledButtonStyle}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove Category</button>}</div>
                   </div>
                   {group.goals.map((goal, index) => {
                     const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
@@ -434,6 +434,15 @@ export default function AdminClePreviewPage() {
               <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
             </div>
           </section>
+
+          <details style={{ ...cardStyle, order: 7 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes (Reference Only)</summary>
+            <p style={{ color: "#5d6878" }}>CLEs can maintain more than one outcome reference. These are not tied to goals and do not print on finalized note PDFs.</p>
+            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, marginBottom: 10, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome reference"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button disabled style={disabledButtonStyle}>Edit</button><button disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
+            {!participant.participant_outcomes?.length && <p>No outcome references have been added.</p>}
+            <button disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Outcome</button>
+            <p style={{ color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
+          </details>
 
           <section style={{ ...cardStyle, order: 5 }}>
             <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>

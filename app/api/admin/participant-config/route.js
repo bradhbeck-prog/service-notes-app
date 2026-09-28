@@ -51,7 +51,8 @@ export async function GET(request) {
     participant_goals (
       id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
       sort_order, active, requires_detail, requires_prompt_level, detail_prompt
-    )
+    ),
+    participant_outcomes (id, outcome_phrase, outcome_statement, outcome_action_plan)
   `).eq("workspace_id", membership.workspace_id).eq("active", true).order("name");
   if (error) return json({ error: error.message }, 400);
   return json({ participants: participants || [] });
@@ -127,7 +128,7 @@ export async function POST(request) {
   if (action === "save_goal") {
     const goal = body.goal || {};
     const goalId = String(goal.id || "");
-    const categoryName = String(goal.categoryName || "Goals").trim() || "Goals";
+    const categoryName = String(goal.categoryName || "Uncategorized").trim() || "Uncategorized";
     const goalLabel = String(goal.goalLabel || "").trim();
     const requestedServiceIds = [...new Set((Array.isArray(goal.serviceIds) ? goal.serviceIds : []).map(String))];
     if (!goalLabel) return json({ error: "Enter the goal description." }, 400);
@@ -193,6 +194,47 @@ export async function POST(request) {
       return json({ error: "Not every goal in this category could be updated." }, 400);
     }
     return json({ message: `Category renamed from ${oldCategory} to ${newCategory}.` });
+  }
+
+  if (action === "remove_category") {
+    const category = String(body.category || "").trim();
+    const goalIds = [...new Set((Array.isArray(body.goalIds) ? body.goalIds : []).map(String))];
+    if (!category || !goalIds.length) return json({ error: "Choose a category to remove." }, 400);
+    if (category === "Uncategorized") return json({ error: "The Uncategorized group cannot be removed." }, 400);
+    const { data: updated, error } = await admin.from("participant_goals")
+      .update({ category_name: "Uncategorized" }).eq("participant_id", participantId)
+      .eq("active", true).in("id", goalIds).select("id");
+    if (error) return json({ error: error.message }, 400);
+    if ((updated || []).length !== goalIds.length) return json({ error: "Not every goal in this category could be updated." }, 400);
+    return json({ message: `${category} was removed. Its goals are now uncategorized.` });
+  }
+
+  if (action === "save_outcome") {
+    const outcome = body.outcome || {};
+    const outcomeId = String(outcome.id || "");
+    const values = {
+      participant_id: participantId,
+      outcome_phrase: String(outcome.phrase || "").trim() || null,
+      outcome_statement: String(outcome.statement || "").trim() || null,
+      outcome_action_plan: String(outcome.actionPlan || "").trim() || null,
+    };
+    if (!values.outcome_phrase && !values.outcome_statement && !values.outcome_action_plan) {
+      return json({ error: "Enter at least one part of the outcome reference." }, 400);
+    }
+    const query = outcomeId
+      ? admin.from("participant_outcomes").update(values).eq("id", outcomeId).eq("participant_id", participantId)
+      : admin.from("participant_outcomes").insert(values);
+    const { data: saved, error } = await query.select("id").maybeSingle();
+    if (error || !saved) return json({ error: error?.message || "The outcome could not be saved." }, 400);
+    return json({ message: outcomeId ? "Outcome reference updated." : "Outcome reference added.", outcomeId: saved.id });
+  }
+
+  if (action === "delete_outcome") {
+    const outcomeId = String(body.outcomeId || "");
+    const { data: removed, error } = await admin.from("participant_outcomes").delete()
+      .eq("id", outcomeId).eq("participant_id", participantId).select("id").maybeSingle();
+    if (error || !removed) return json({ error: error?.message || "The outcome could not be removed." }, 400);
+    return json({ message: "Outcome reference removed." });
   }
 
   if (action === "archive_goal") {

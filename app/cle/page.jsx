@@ -99,6 +99,9 @@ export default function ClePortalPage() {
   const [savingCategoryRename, setSavingCategoryRename] = useState(false);
   const [selectedPromptLevels, setSelectedPromptLevels] = useState(DEFAULT_PROMPT_LEVELS);
   const [savingPromptLevels, setSavingPromptLevels] = useState(false);
+  const [savingOutcome, setSavingOutcome] = useState(false);
+  const [editingOutcomeId, setEditingOutcomeId] = useState("");
+  const [outcomeDraft, setOutcomeDraft] = useState({ phrase: "", statement: "", actionPlan: "" });
   const [goalDraft, setGoalDraft] = useState({
     categoryName: "",
     goalLabel: "",
@@ -258,7 +261,7 @@ export default function ClePortalPage() {
   const groupedGoals = useMemo(() => {
     const groups = new Map();
     for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
-      const category = goal.category_name?.trim() || "Goals";
+      const category = goal.category_name?.trim() || "Uncategorized";
       const categoryKey = category.toLocaleLowerCase();
       if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
       groups.get(categoryKey).goals.push(goal);
@@ -314,7 +317,7 @@ export default function ClePortalPage() {
         ? [goal.participant_service_id]
         : activeServiceIds;
     setGoalDraft({
-      categoryName: goal.category_name || "Goals",
+      categoryName: goal.category_name || "Uncategorized",
       goalLabel: goal.goal_label || "",
       serviceIds: storedServiceIds.filter((id) => activeServiceIds.includes(id)),
       requiresDetail: Boolean(goal.requires_detail),
@@ -326,7 +329,7 @@ export default function ClePortalPage() {
 
   async function saveGoal(event) {
     event.preventDefault();
-    const categoryName = goalDraft.categoryName.trim() || "Goals";
+    const categoryName = goalDraft.categoryName.trim() || "Uncategorized";
     const goalLabel = goalDraft.goalLabel.trim();
     if (!goalLabel) return setMessage("Enter the goal description.");
     if (activeParticipantServices.length && !goalDraft.serviceIds.length) {
@@ -420,6 +423,38 @@ export default function ClePortalPage() {
     } finally {
       setSavingCategoryRename(false);
     }
+  }
+
+  async function removeCategory(group) {
+    if (!window.confirm(`Remove the category “${group.category}”? Its goals will remain under Uncategorized.`)) return;
+    try {
+      const result = await callGoalConfig({ action: "remove_category", category: group.category, goalIds: group.goals.map((goal) => goal.id) });
+      if (goalDraft.categoryName.trim().toLocaleLowerCase() === group.category.toLocaleLowerCase()) {
+        setGoalDraft((current) => ({ ...current, categoryName: "Uncategorized" }));
+      }
+      await loadPortal(); setMessage(result.message);
+    } catch (error) { setMessage(`Could not remove category: ${error.message}`); }
+  }
+
+  function editOutcome(outcome) {
+    setEditingOutcomeId(outcome.id);
+    setOutcomeDraft({ phrase: outcome.outcome_phrase || "", statement: outcome.outcome_statement || "", actionPlan: outcome.outcome_action_plan || "" });
+  }
+  function clearOutcome() { setEditingOutcomeId(""); setOutcomeDraft({ phrase: "", statement: "", actionPlan: "" }); }
+  async function saveOutcome(event) {
+    event.preventDefault(); setSavingOutcome(true); setMessage("");
+    try {
+      const result = await callGoalConfig({ action: "save_outcome", outcome: { id: editingOutcomeId || null, ...outcomeDraft } });
+      clearOutcome(); await loadPortal(); setMessage(result.message);
+    } catch (error) { setMessage(`Could not save outcome: ${error.message}`); }
+    finally { setSavingOutcome(false); }
+  }
+  async function deleteOutcome(outcome) {
+    if (!window.confirm("Remove this outcome reference? Goals and service notes will not be changed.")) return;
+    try {
+      const result = await callGoalConfig({ action: "delete_outcome", outcomeId: outcome.id });
+      if (editingOutcomeId === outcome.id) clearOutcome(); await loadPortal(); setMessage(result.message);
+    } catch (error) { setMessage(`Could not remove outcome: ${error.message}`); }
   }
 
   const availablePromptLevels = [
@@ -728,10 +763,10 @@ export default function ClePortalPage() {
             </div>
           </section>
 
-          <section id="cle-goals" style={{ ...cardStyle, scrollMarginTop: 20, order: 4 }}>
+          <details open id="cle-goals" style={{ ...cardStyle, scrollMarginTop: 20, order: 4 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Goals</summary>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div>
-                <h2 style={{ margin: 0 }}>Goals</h2>
                 <p style={{ color: "#5d6878", margin: "5px 0 0" }}>
                   These goals control what workers see on the service note. Goals are grouped by category.
                 </p>
@@ -753,7 +788,7 @@ export default function ClePortalPage() {
                 <section key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
-                    <button
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button
                       type="button"
                       disabled={savingCategoryRename}
                       onClick={() => {
@@ -764,6 +799,7 @@ export default function ClePortalPage() {
                     >
                       Rename
                     </button>
+                    {group.category !== "Uncategorized" && <button type="button" onClick={() => removeCategory(group)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove Category</button>}</div>
                   </div>
 
                   {renamingCategory === group.category && (
@@ -909,10 +945,10 @@ export default function ClePortalPage() {
                 {editingGoalId && <button type="button" onClick={clearGoalDraft} style={secondaryButtonStyle}>Cancel</button>}
               </div>
             </form>
-          </section>
+          </details>
 
-          <section style={{ ...cardStyle, order: 5 }}>
-            <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
+          <details style={{ ...cardStyle, order: 5 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Prompt Levels</summary>
             <p style={{ color: "#5d6878", marginTop: 0 }}>
               Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.
             </p>
@@ -948,10 +984,20 @@ export default function ClePortalPage() {
               {savingPromptLevels ? "Saving..." : "Save Prompt Levels"}
             </button>
             {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
-          </section>
+          </details>
 
-          <section style={{ ...cardStyle, order: 6 }}>
-            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
+          <details style={{ ...cardStyle, order: 7 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes (Reference Only)</summary>
+            <p style={{ color: "#5d6878" }}>These provide background reference and are not tied to goals or printed on finalized service-note PDFs.</p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome reference"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button type="button" onClick={() => editOutcome(outcome)} style={smallButtonStyle}>Edit</button><button type="button" onClick={() => deleteOutcome(outcome)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
+              {!participant.participant_outcomes?.length && <p style={{ color: "#5d6878" }}>No outcome references have been added.</p>}
+            </div>
+            <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 11, background: "var(--dn-pink-pale)" }}><h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3><label style={{ display: "block", fontWeight: 800 }}>Short title or phrase<input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={inputStyle} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Outcome statement<textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Action plan / reference notes<textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><div style={{ display: "flex", gap: 8, marginTop: 12 }}><button disabled={savingOutcome} style={primaryButtonStyle}>{savingOutcome ? "Saving..." : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondaryButtonStyle}>Cancel</button>}</div></form>
+          </details>
+
+          <details style={{ ...cardStyle, order: 6 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Assigned Workers</summary>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               These workers can currently open notes for {participant.name}. Removing access here only removes this participant assignment; it does not delete the worker or past notes.
             </p>
@@ -999,10 +1045,10 @@ export default function ClePortalPage() {
             <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", color: "#92400e" }}>
               Need to add a worker? Email Bradley at bradley@supportsbroker.com for now.
             </div>
-          </section>
+          </details>
 
-          <section style={{ ...cardStyle, order: 3 }}>
-            <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
+          <details style={{ ...cardStyle, order: 3 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Note Delivery Preferences</summary>
             <p style={{ color: "#4b5563" }}>
               Choose one or more ways you would like to receive service notes.
             </p>
@@ -1039,10 +1085,10 @@ export default function ClePortalPage() {
                 {savingPreference ? "Saving..." : "Save Preferences"}
               </button>
             </div>
-          </section>
+          </details>
 
-          <section style={{ ...cardStyle, order: 2 }}>
-            <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
+          <details open style={{ ...cardStyle, order: 2 }}>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Submitted Service Notes</summary>
             <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
               <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
               <p style={{ color: "#4b5563", marginTop: 0 }}>
@@ -1179,7 +1225,7 @@ export default function ClePortalPage() {
                 )}
               </>
             )}
-          </section>
+          </details>
         </div>
       )}
     </main>
