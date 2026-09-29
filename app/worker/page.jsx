@@ -1294,14 +1294,14 @@ onChange={(e) => {
       </div>
 
       <details style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
-        <summary style={{ cursor: "pointer", fontWeight: 800 }}>Outcome Information (Reference Only)</summary>
+        <summary style={{ cursor: "pointer", fontWeight: 800 }}>Outcome Information</summary>
         {(selectedParticipant.participant_outcomes || []).length ? selectedParticipant.participant_outcomes.map((outcome, index) => (
           <div key={outcome.id || index} style={{ marginTop: 12, padding: 12, borderRadius: 8, background: "var(--dn-blue-pale)" }}>
             <p><strong>Outcome Phrase:</strong> {outcome.outcome_phrase || "Not set"}</p>
             <p><strong>Outcome Statement:</strong> {outcome.outcome_statement || "Not set"}</p>
             <p><strong>Outcome Action Plan:</strong> {outcome.outcome_action_plan || "Not set"}</p>
           </div>
-        )) : <p>No outcome references are set.</p>}
+        )) : <p>No outcomes are set.</p>}
       </details>
 
       <p style={{ marginTop: 10 }}>{message}</p>

@@ -315,8 +315,8 @@ export default function AdminClePreviewPage() {
         </section>
       ) : (
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <section style={{ ...cardStyle, order: 1 }}>
-            <h2 style={{ marginTop: 0, marginBottom: 6 }}>{participant.name}</h2>
+          <details open style={{ ...cardStyle, order: 1 }}>
+            <summary style={{ cursor: "pointer", fontSize: 26, fontWeight: 800, marginBottom: 10 }}>{participant.name}</summary>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
@@ -341,7 +341,7 @@ export default function AdminClePreviewPage() {
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
               </div>
             </div>
-          </section>
+          </details>
 
           <section style={{ ...cardStyle, order: 4 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
@@ -436,10 +436,10 @@ export default function AdminClePreviewPage() {
           </section>
 
           <details style={{ ...cardStyle, order: 7 }}>
-            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes (Reference Only)</summary>
-            <p style={{ color: "#5d6878" }}>CLEs can maintain more than one outcome reference. These are not tied to goals and do not print on finalized note PDFs.</p>
-            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, marginBottom: 10, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome reference"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button disabled style={disabledButtonStyle}>Edit</button><button disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
-            {!participant.participant_outcomes?.length && <p>No outcome references have been added.</p>}
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes</summary>
+            <p style={{ color: "#5d6878" }}>CLEs can maintain more than one outcome. Outcomes are not tied to goals and do not print on finalized note PDFs.</p>
+            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, marginBottom: 10, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button disabled style={disabledButtonStyle}>Edit</button><button disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
+            {!participant.participant_outcomes?.length && <p>No outcomes have been added.</p>}
             <button disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Outcome</button>
             <p style={{ color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
           </details>

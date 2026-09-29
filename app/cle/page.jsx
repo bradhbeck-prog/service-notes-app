@@ -450,7 +450,7 @@ export default function ClePortalPage() {
     finally { setSavingOutcome(false); }
   }
   async function deleteOutcome(outcome) {
-    if (!window.confirm("Remove this outcome reference? Goals and service notes will not be changed.")) return;
+    if (!window.confirm("Remove this outcome? Goals and service notes will not be changed.")) return;
     try {
       const result = await callGoalConfig({ action: "delete_outcome", outcomeId: outcome.id });
       if (editingOutcomeId === outcome.id) clearOutcome(); await loadPortal(); setMessage(result.message);
@@ -735,8 +735,8 @@ export default function ClePortalPage() {
         </section>
       ) : (
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <section style={{ ...cardStyle, order: 1 }}>
-            <h2 style={{ marginTop: 0, marginBottom: 6 }}>{participant.name}</h2>
+          <details open style={{ ...cardStyle, order: 1 }}>
+            <summary style={{ cursor: "pointer", fontSize: 26, fontWeight: 800, marginBottom: 10 }}>{participant.name}</summary>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
@@ -761,7 +761,7 @@ export default function ClePortalPage() {
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
               </div>
             </div>
-          </section>
+          </details>
 
           <details open id="cle-goals" style={{ ...cardStyle, scrollMarginTop: 20, order: 4 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Goals</summary>
@@ -987,13 +987,13 @@ export default function ClePortalPage() {
           </details>
 
           <details style={{ ...cardStyle, order: 7 }}>
-            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes (Reference Only)</summary>
-            <p style={{ color: "#5d6878" }}>These provide background reference and are not tied to goals or printed on finalized service-note PDFs.</p>
+            <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes</summary>
+            <p style={{ color: "#5d6878" }}>Outcomes are not tied to goals or printed on finalized service-note PDFs.</p>
             <div style={{ display: "grid", gap: 10 }}>
-              {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome reference"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button type="button" onClick={() => editOutcome(outcome)} style={smallButtonStyle}>Edit</button><button type="button" onClick={() => deleteOutcome(outcome)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
-              {!participant.participant_outcomes?.length && <p style={{ color: "#5d6878" }}>No outcome references have been added.</p>}
+              {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button type="button" onClick={() => editOutcome(outcome)} style={smallButtonStyle}>Edit</button><button type="button" onClick={() => deleteOutcome(outcome)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
+              {!participant.participant_outcomes?.length && <p style={{ color: "#5d6878" }}>No outcomes have been added.</p>}
             </div>
-            <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 11, background: "var(--dn-pink-pale)" }}><h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3><label style={{ display: "block", fontWeight: 800 }}>Short title or phrase<input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={inputStyle} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Outcome statement<textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Action plan / reference notes<textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><div style={{ display: "flex", gap: 8, marginTop: 12 }}><button disabled={savingOutcome} style={primaryButtonStyle}>{savingOutcome ? "Saving..." : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondaryButtonStyle}>Cancel</button>}</div></form>
+            <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 11, background: "var(--dn-pink-pale)" }}><h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3><label style={{ display: "block", fontWeight: 800 }}>Short title or phrase<input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={inputStyle} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Outcome statement<textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Action plan<textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><div style={{ display: "flex", gap: 8, marginTop: 12 }}><button disabled={savingOutcome} style={primaryButtonStyle}>{savingOutcome ? "Saving..." : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondaryButtonStyle}>Cancel</button>}</div></form>
           </details>
 
           <details style={{ ...cardStyle, order: 6 }}>

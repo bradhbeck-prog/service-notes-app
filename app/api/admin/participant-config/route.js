@@ -219,14 +219,14 @@ export async function POST(request) {
       outcome_action_plan: String(outcome.actionPlan || "").trim() || null,
     };
     if (!values.outcome_phrase && !values.outcome_statement && !values.outcome_action_plan) {
-      return json({ error: "Enter at least one part of the outcome reference." }, 400);
+      return json({ error: "Enter at least one part of the outcome." }, 400);
     }
     const query = outcomeId
       ? admin.from("participant_outcomes").update(values).eq("id", outcomeId).eq("participant_id", participantId)
       : admin.from("participant_outcomes").insert(values);
     const { data: saved, error } = await query.select("id").maybeSingle();
     if (error || !saved) return json({ error: error?.message || "The outcome could not be saved." }, 400);
-    return json({ message: outcomeId ? "Outcome reference updated." : "Outcome reference added.", outcomeId: saved.id });
+    return json({ message: outcomeId ? "Outcome updated." : "Outcome added.", outcomeId: saved.id });
   }
 
   if (action === "delete_outcome") {
@@ -234,7 +234,7 @@ export async function POST(request) {
     const { data: removed, error } = await admin.from("participant_outcomes").delete()
       .eq("id", outcomeId).eq("participant_id", participantId).select("id").maybeSingle();
     if (error || !removed) return json({ error: error?.message || "The outcome could not be removed." }, 400);
-    return json({ message: "Outcome reference removed." });
+    return json({ message: "Outcome removed." });
   }
 
   if (action === "archive_goal") {

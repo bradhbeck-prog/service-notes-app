@@ -401,7 +401,7 @@ export default function AdminDashboard() {
     finally { setSavingOutcome(false); }
   }
   async function deleteOutcome(outcome) {
-    if (!window.confirm("Remove this outcome reference? This does not remove any goals or service notes.")) return;
+    if (!window.confirm("Remove this outcome? This does not remove any goals or service notes.")) return;
     try {
       const result = await callParticipantConfig({ action: "delete_outcome", outcomeId: outcome.id });
       if (editingOutcomeId === outcome.id) clearOutcome(); setMessage(result.message); await loadData();
@@ -544,26 +544,6 @@ export default function AdminDashboard() {
           {!selectedServiceNames.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one service is required.</p>}
           {servicesDirty && selectedServiceNames.length > 0 && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", color: C.ink, fontWeight: 700 }}>Save these service changes before adding or editing goals.</p>}
         </details>
-        <details open style={{ ...card, marginTop: 18 }}>
-          <summary style={summaryStyle}>Outcomes (Reference Only)</summary>
-          <p style={{ color: C.muted }}>A participant may have more than one outcome reference. These are not tied to goal categories and are not printed on finalized service-note PDFs.</p>
-          <div style={{ display: "grid", gap: 10 }}>
-            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: `1px solid ${C.border}`, borderRadius: 10, background: C.pale }}>
-              <strong>{outcome.outcome_phrase || "Outcome reference"}</strong>
-              {outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}
-              {outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: C.muted }}>{outcome.outcome_action_plan}</p>}
-              <div style={{ display: "flex", gap: 8 }}><button onClick={() => editOutcome(outcome)} style={smallButton}>Edit</button><button onClick={() => deleteOutcome(outcome)} style={{ ...smallButton, color: "#9b2c2c" }}>Remove</button></div>
-            </article>)}
-            {!participant.participant_outcomes?.length && <p style={{ color: C.muted }}>No outcome references have been added.</p>}
-          </div>
-          <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 10, background: "var(--dn-blue-pale)" }}>
-            <h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3>
-            <Field label="Short title or phrase"><input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={input} /></Field>
-            <Field label="Outcome statement"><textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
-            <Field label="Action plan / reference notes"><textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
-            <div style={{ display: "flex", gap: 8 }}><button disabled={savingOutcome} style={button}>{savingOutcome ? "Saving…" : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondary}>Cancel</button>}</div>
-          </form>
-        </details>
         <details open id="goals" style={{ ...card, marginTop: 18, scrollMarginTop: 20 }}>
           <summary style={summaryStyle}>Goals</summary>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p><button disabled={servicesDirty} onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={{ ...button, opacity: servicesDirty ? .5 : 1 }}>Add Goal</button></div>
@@ -630,6 +610,26 @@ export default function AdminDashboard() {
           </form>
         </details>
         <details style={{ ...card, marginTop: 18 }}><summary style={summaryStyle}>Assigned Workers</summary>{assignedWorkers.length ? assignedWorkers.map((w) => <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "13px 0", borderBottom: `1px solid ${C.border}` }}><div><strong>{w.name}</strong><div style={{ color: C.muted }}>{w.email || "No email account linked"}</div><div style={{ color: w.auth_user_id ? C.teal : "#9b6500", fontSize: 13, fontWeight: 700, marginTop: 3 }}>{w.auth_user_id ? "Email/password account linked" : "Setup not completed"}</div></div>{w.email && <button onClick={() => w.auth_user_id ? resetPassword(w) : resendSetup(w)} disabled={resettingId === w.id} style={secondary}>{resettingId === w.id ? "Preparing link…" : w.auth_user_id ? "Send Password Help" : "Send Setup Link"}</button>}</div>) : <p style={{ color: C.muted }}>No workers assigned.</p>}<button onClick={() => { setTab("workers"); setNewWorker((current) => ({ ...current, participantId: participant.id })); }} style={{ ...button, marginTop: 14 }}>Add a Worker</button></details>
+        <details style={{ ...card, marginTop: 18 }}>
+          <summary style={summaryStyle}>Outcomes</summary>
+          <p style={{ color: C.muted }}>A participant may have more than one outcome. Outcomes are not tied to goal categories and are not printed on finalized service-note PDFs.</p>
+          <div style={{ display: "grid", gap: 10 }}>
+            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: `1px solid ${C.border}`, borderRadius: 10, background: C.pale }}>
+              <strong>{outcome.outcome_phrase || "Outcome"}</strong>
+              {outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}
+              {outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: C.muted }}>{outcome.outcome_action_plan}</p>}
+              <div style={{ display: "flex", gap: 8 }}><button onClick={() => editOutcome(outcome)} style={smallButton}>Edit</button><button onClick={() => deleteOutcome(outcome)} style={{ ...smallButton, color: "#9b2c2c" }}>Remove</button></div>
+            </article>)}
+            {!participant.participant_outcomes?.length && <p style={{ color: C.muted }}>No outcomes have been added.</p>}
+          </div>
+          <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 10, background: "var(--dn-blue-pale)" }}>
+            <h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3>
+            <Field label="Short title or phrase"><input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={input} /></Field>
+            <Field label="Outcome statement"><textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
+            <Field label="Action plan"><textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
+            <div style={{ display: "flex", gap: 8 }}><button disabled={savingOutcome} style={button}>{savingOutcome ? "Saving…" : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondary}>Cancel</button>}</div>
+          </form>
+        </details>
       </> : <p>Select a participant.</p>}</div>
     </section>}
 
