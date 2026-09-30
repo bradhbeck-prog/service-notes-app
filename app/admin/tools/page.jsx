@@ -90,6 +90,7 @@ export default function AdminPage() {
   const [participantOutcomeStatement, setParticipantOutcomeStatement] = useState("");
   const [participantOutcomeActionPlan, setParticipantOutcomeActionPlan] = useState("");
   const [participantPromptLevels, setParticipantPromptLevels] = useState({});
+  const [addingParticipant, setAddingParticipant] = useState(false);
 
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [selectedParticipantId, setSelectedParticipantId] = useState("");
@@ -317,83 +318,52 @@ const [editingGoalId, setEditingGoalId] = useState("");
       return;
     }
 
-    const workspaceId = await getWritableWorkspaceId();
+    setAddingParticipant(true);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!workspaceId) {
-      setMessage("No active workspace was found. Sign in with your owner email, then try again.");
+    if (!session?.access_token) {
+      setAddingParticipant(false);
+      setMessage("Sign in again before adding a participant.");
       return;
     }
 
-    const { data: participantInsert, error: participantError } = await supabase
-      .from("participants")
-      .insert([
-        {
-          workspace_id: workspaceId,
-          name: participantName.trim(),
-          cle_email: participantCleEmail.trim() || null,
-          service_name: participantServiceName.trim() || null,
-          outcome_phrase: participantOutcomePhrase.trim() || null,
-          active: true,
-          prompt_levels: DEFAULT_PROMPT_LEVELS,
+    try {
+      const response = await fetch("/api/admin/participants", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
-      ])
-      .select()
-      .single();
-
-    if (participantError) {
-      setMessage(`Error adding participant: ${participantError.message}`);
-      return;
-    }
-
-    if (
-      participantOutcomePhrase.trim() ||
-      participantOutcomeStatement.trim() ||
-      participantOutcomeActionPlan.trim()
-    ) {
-      const { error: outcomeError } = await supabase
-        .from("participant_outcomes")
-        .insert([
-          {
-            participant_id: participantInsert.id,
-            outcome_phrase: participantOutcomePhrase.trim() || "",
-            outcome_statement: participantOutcomeStatement.trim() || "",
-            outcome_action_plan: participantOutcomeActionPlan.trim() || "",
-          },
-        ]);
-
-      if (outcomeError) {
-        setMessage(`Participant added, but outcome failed: ${outcomeError.message}`);
-        loadData();
+        body: JSON.stringify({
+          name: participantName,
+          cleEmail: participantCleEmail,
+          serviceName: participantServiceName,
+          outcomePhrase: participantOutcomePhrase,
+          outcomeStatement: participantOutcomeStatement,
+          outcomeActionPlan: participantOutcomeActionPlan,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        setMessage(`Error adding participant: ${result.error || "The participant could not be added."}`);
         return;
       }
+
+      setParticipantName("");
+      setParticipantCleEmail("");
+      setParticipantServiceName("");
+      setParticipantOutcomePhrase("");
+      setParticipantOutcomeStatement("");
+      setParticipantOutcomeActionPlan("");
+      setMessage(result.message || "Participant added.");
+      await loadData();
+    } catch {
+      setMessage("Error adding participant: the request could not be completed. Please try again.");
+    } finally {
+      setAddingParticipant(false);
     }
-
-    if (participantServiceName.trim()) {
-      const { error: serviceError } = await supabase
-        .from("participant_services")
-        .insert([
-          {
-            participant_id: participantInsert.id,
-            service_name: participantServiceName.trim(),
-            active: true,
-          },
-        ]);
-
-      if (serviceError) {
-        setMessage(`Participant added, but service failed: ${serviceError.message}`);
-        loadData();
-        return;
-      }
-    }
-
-    setParticipantName("");
-    setParticipantCleEmail("");
-    setParticipantServiceName("");
-    setParticipantOutcomePhrase("");
-    setParticipantOutcomeStatement("");
-    setParticipantOutcomeActionPlan("");
-    setMessage("Participant added.");
-    loadData();
   }
 
   async function handleDeleteParticipant() {
@@ -1098,8 +1068,12 @@ async function handleUpdateGoal() {
             onChange={(e) => setParticipantOutcomeActionPlan(e.target.value)}
             style={{ padding: 10, fontSize: 16, minHeight: 80 }}
           />
-          <button onClick={handleAddParticipant} style={{ padding: 10, fontSize: 16 }}>
-            Add Participant
+          <button
+            onClick={handleAddParticipant}
+            disabled={addingParticipant}
+            style={{ padding: 10, fontSize: 16 }}
+          >
+            {addingParticipant ? "Adding Participant…" : "Add Participant"}
           </button>
         </div>
       </section>
