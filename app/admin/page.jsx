@@ -612,7 +612,7 @@ export default function AdminDashboard() {
         <details style={{ ...card, marginTop: 18 }}><summary style={summaryStyle}>Assigned Workers</summary>{assignedWorkers.length ? assignedWorkers.map((w) => <div key={w.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, padding: "13px 0", borderBottom: `1px solid ${C.border}` }}><div><strong>{w.name}</strong><div style={{ color: C.muted }}>{w.email || "No email account linked"}</div><div style={{ color: w.auth_user_id ? C.teal : "#9b6500", fontSize: 13, fontWeight: 700, marginTop: 3 }}>{w.auth_user_id ? "Email/password account linked" : "Setup not completed"}</div></div>{w.email && <button onClick={() => w.auth_user_id ? resetPassword(w) : resendSetup(w)} disabled={resettingId === w.id} style={secondary}>{resettingId === w.id ? "Preparing link…" : w.auth_user_id ? "Send Password Help" : "Send Setup Link"}</button>}</div>) : <p style={{ color: C.muted }}>No workers assigned.</p>}<button onClick={() => { setTab("workers"); setNewWorker((current) => ({ ...current, participantId: participant.id })); }} style={{ ...button, marginTop: 14 }}>Add a Worker</button></details>
         <details style={{ ...card, marginTop: 18 }}>
           <summary style={summaryStyle}>Outcomes</summary>
-          <p style={{ color: C.muted }}>A participant may have more than one outcome. Outcomes are not tied to goal categories and are not printed on finalized service-note PDFs.</p>
+          <p style={{ color: C.muted }}>A participant may have more than one outcome.</p>
           <div style={{ display: "grid", gap: 10 }}>
             {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: `1px solid ${C.border}`, borderRadius: 10, background: C.pale }}>
               <strong>{outcome.outcome_phrase || "Outcome"}</strong>
@@ -624,7 +624,7 @@ export default function AdminDashboard() {
           </div>
           <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 10, background: "var(--dn-blue-pale)" }}>
             <h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3>
-            <Field label="Short title or phrase"><input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={input} /></Field>
+            <Field label="Outcome phrase"><input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={input} /></Field>
             <Field label="Outcome statement"><textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
             <Field label="Action plan"><textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...input, resize: "vertical" }} /></Field>
             <div style={{ display: "flex", gap: 8 }}><button disabled={savingOutcome} style={button}>{savingOutcome ? "Saving…" : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondary}>Cancel</button>}</div>

@@ -437,7 +437,7 @@ export default function AdminClePreviewPage() {
 
           <details style={{ ...cardStyle, order: 7 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes</summary>
-            <p style={{ color: "#5d6878" }}>CLEs can maintain more than one outcome. Outcomes are not tied to goals and do not print on finalized note PDFs.</p>
+            <p style={{ color: "#5d6878" }}>A participant may have more than one outcome.</p>
             {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, marginBottom: 10, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button disabled style={disabledButtonStyle}>Edit</button><button disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
             {!participant.participant_outcomes?.length && <p>No outcomes have been added.</p>}
             <button disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Outcome</button>
