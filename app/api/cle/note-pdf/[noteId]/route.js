@@ -158,8 +158,9 @@ export async function GET(request, { params }) {
 
   const pdfResponse = await fetch(new URL("/api/generate-pdf", request.url), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: authorization },
     body: JSON.stringify({
+      noteId: note.id,
       workerName: note.workers?.name || "Worker",
       participantName: participantRow.name || participant.name,
       cleEmail: null,

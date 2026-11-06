@@ -443,6 +443,11 @@ async function handleSubmitNote() {
       return;
     }
 
+    if (timeOut <= timeIn) {
+      setMessage("The end time must be later than the start time. Use separate notes when service crosses midnight.");
+      return;
+    }
+
     const missingGoalDetails = getMissingGoalDetailLabels();
     if (missingGoalDetails.length > 0) {
       setMessage(`Please complete the detail field for: ${missingGoalDetails.join(", ")}`);
@@ -472,51 +477,53 @@ async function handleSubmitNote() {
       return;
     }
 
-    const signedAt = new Date().toISOString();
-    const dateCompleted = signedAt.slice(0, 10);
-
     setSaving(true);
     setMessage("");
 
- const insertPayload = {
-  worker_id: worker.id,
-  participant_id: selectedParticipant.id,
-  shift_date: shiftDate,
-  time_in: timeIn,
-  time_out: timeOut,
-  service: service,
-  location: location,
-  narrative: noteText.trim(),
-  goals: selectedGoals.map(String),
-  goal_details: normalizeGoalDetails(goalDetails),
-  prompt_levels: normalizeGoalDetails(promptLevels),
-  status: "submitted",
-  worker_signature_mode: signatureMode,
-  worker_typed_signature: typedSignature,
-  worker_drawn_signature: signatureMode === "draw" ? drawnSignature : null,
-  worker_signature_font: signatureFont,
-  worker_signature_date: shiftDate,
-  date_completed: dateCompleted,
-  signed_at: signedAt,
-  signed_by_user_id: worker.auth_user_id || null,
-  signature_attested: true,
-};
-
-    const noteQuery = currentNoteId
-      ? supabase
-          .from("service_notes")
-          .update(insertPayload)
-          .eq("id", currentNoteId)
-          .eq("worker_id", worker.id)
-          .eq("participant_id", selectedParticipant.id)
-      : supabase.from("service_notes").insert([insertPayload]);
-
-    const { data: noteInsert, error } = await noteQuery.select().maybeSingle();
-
-    if (error) {
-      console.log("SUPABASE ERROR:", error);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
       setSaving(false);
-      setMessage(`Error saving note: ${error.message}`);
+      setMessage("Your login session expired. Sign in again before submitting this note.");
+      return;
+    }
+
+    let submission;
+    try {
+      const submitResponse = await fetch("/api/worker/submit-note", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          participantId: selectedParticipant.id,
+          currentNoteId,
+          shiftDate,
+          timeIn,
+          timeOut,
+          service,
+          location,
+          noteText: noteText.trim(),
+          selectedGoals: selectedGoals.map(String),
+          goalDetails: normalizeGoalDetails(goalDetails),
+          promptLevels: normalizeGoalDetails(promptLevels),
+          signatureMode,
+          typedSignature,
+          drawnSignature,
+          signatureFont,
+          signatureAttested,
+        }),
+      });
+      submission = await submitResponse.json();
+      if (!submitResponse.ok) {
+        setSaving(false);
+        setMessage(submission.error || "The service note could not be submitted.");
+        return;
+      }
+    } catch (error) {
+      console.error("SUBMISSION ERROR:", error);
+      setSaving(false);
+      setMessage("The service note could not be submitted. Please try again.");
       return;
     }
 
@@ -524,59 +531,16 @@ async function handleSubmitNote() {
     setHasDraft(false);
     setDraftParticipantIds((current) => current.filter((id) => id !== selectedParticipant.id));
 
-    if (selectedGoals.length > 0) {
-      const goalRows = selectedGoals.map((goalId) => ({
-        service_note_id: noteInsert.id,
-        participant_goal_id: goalId,
-        prompt_level: promptLevels[goalId] || null,
-      }));
-
-      const { error: goalsError } = await supabase
-        .from("service_note_goals")
-        .insert(goalRows);
-
-      if (goalsError) {
-        console.log("GOALS ERROR:", goalsError);
-        setSaving(false);
-        setMessage(`Note saved, but goals failed to save: ${goalsError.message}`);
-        return;
-      }
-    }
-
     try {
       const res = await fetch("/api/generate-pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          workerName: worker.name,
-          participantName: selectedParticipant.name,
-          cleEmail: selectedParticipant.cle_email,
-          shiftDate,
-          timeIn,
-          timeOut,
-          service,
-          location,
-          outcomePhrase: "",
-          outcomeStatement: "",
-          outcomeActionPlan: "",
-          selectedGoals:
-            selectedParticipant.participant_goals
-              ?.filter((goal) => selectedGoals.includes(String(goal.id)))
-              .map((goal) => ({
-                ...goal,
-                detail_value: goalDetails[goal.id] || "",
-                prompt_level: promptLevels[goal.id] || "",
-              })) || [],
-          noteText: noteText.trim(),
-          signatureMode,
-          typedSignature,
-          drawnSignature,
-          signatureFont,
-          dateCompleted,
-          signedAt,
-          attestationText: "I certify that this service note accurately reflects the services I provided.",
+          noteId: submission.noteId,
+          sendEmail: true,
         }),
       });
 
@@ -591,7 +555,7 @@ async function handleSubmitNote() {
         a.remove();
         window.URL.revokeObjectURL(url);
 
-        setMessage("Note saved and PDF downloaded");
+        setMessage(`${submission.message} PDF downloaded.`);
         setTypedSignature("");
         setDrawnSignature("");
 
@@ -602,11 +566,11 @@ async function handleSubmitNote() {
         setSignatureMode("typed");
         setSignatureAttested(false);
       } else {
-        setMessage("Note saved, but PDF download failed");
+        setMessage(`${submission.message} The PDF download failed.`);
       }
     } catch (err) {
       console.error("PDF ERROR:", err);
-      setMessage("Note saved, but PDF download failed");
+      setMessage(`${submission.message} The PDF download failed.`);
     }
 
     setSaving(false);
@@ -960,6 +924,8 @@ onChange={(e) => {
                                 Prompt level
                               </label>
                               <select
+                                required
+                                aria-required="true"
                                 value={promptLevels[goalId] || ""}
                                 onChange={(e) =>
                                   setPromptLevels((prev) => ({
@@ -991,6 +957,8 @@ onChange={(e) => {
                             <div style={{ marginTop: 10 }}>
                               <input
                                 type="text"
+                                required
+                                aria-required="true"
                                 placeholder={goal.detail_prompt || "Add details"}
                                 value={goalDetails[goalId] || ""}
                                 onChange={(e) =>

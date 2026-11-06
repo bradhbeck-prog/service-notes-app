@@ -2,10 +2,131 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import fontkit from "@pdf-lib/fontkit";
 import { sendServiceNoteEmail } from "../../../lib/sendEmail";
 import path from "path";
+import { createClient } from "@supabase/supabase-js";
+
+function responseText(message, status = 400) {
+  return new Response(message, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+function getGoalDetail(details, goalId) {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return "";
+  return details[String(goalId)] || details[goalId] || "";
+}
+
+function buildSelectedGoals(note) {
+  const rows = Array.isArray(note.service_note_goals) ? note.service_note_goals : [];
+  if (rows.length) {
+    return rows.map((row) => {
+      const goal = row.participant_goals;
+      return goal ? {
+        ...goal,
+        prompt_level: row.prompt_level || getGoalDetail(note.prompt_levels, goal.id),
+        detail_value: getGoalDetail(note.goal_details, goal.id),
+      } : null;
+    }).filter(Boolean);
+  }
+  const selectedIds = Array.isArray(note.goals) ? note.goals.map(String) : [];
+  return (note.participants?.participant_goals || [])
+    .filter((goal) => selectedIds.includes(String(goal.id)))
+    .map((goal) => ({
+      ...goal,
+      prompt_level: getGoalDetail(note.prompt_levels, goal.id),
+      detail_value: getGoalDetail(note.goal_details, goal.id),
+    }));
+}
+
+async function loadAuthorizedNote(request, noteId) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceRoleKey) return { response: responseText("Secure PDF generation is not configured.", 500) };
+
+  const authorization = request.headers.get("authorization") || "";
+  const accessToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+  if (!accessToken) return { response: responseText("Sign in again before generating this PDF.", 401) };
+
+  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { data: { user }, error: userError } = await admin.auth.getUser(accessToken);
+  if (userError || !user) return { response: responseText("Your login session is invalid or expired.", 401) };
+
+  const { data: note, error: noteError } = await admin.from("service_notes").select(`
+    id, participant_id, worker_id, shift_date, date_completed, signed_at, time_in, time_out,
+    service, location, narrative, goals, goal_details, prompt_levels, status,
+    worker_signature_mode, worker_typed_signature, worker_drawn_signature, worker_signature_font,
+    workers(id, name, auth_user_id),
+    participants(
+      id, name, cle_email, cle_auth_user_id, workspace_id,
+      participant_goals(id, goal_label, category_name, sort_order, participant_service_id),
+      participant_outcomes(outcome_phrase, outcome_statement, outcome_action_plan)
+    ),
+    service_note_goals(
+      prompt_level,
+      participant_goals(id, goal_label, category_name, sort_order, participant_service_id)
+    )
+  `).eq("id", noteId).eq("status", "submitted").maybeSingle();
+  if (noteError || !note) return { response: responseText("Submitted service note not found.", 404) };
+
+  const participant = note.participants || {};
+  const workerOwnsNote = note.workers?.auth_user_id === user.id;
+  let authorized = workerOwnsNote || participant.cle_auth_user_id === user.id;
+
+  if (!authorized) {
+    const { data: membership } = await admin.from("workspace_memberships").select("workspace_id")
+      .eq("user_id", user.id).eq("workspace_id", participant.workspace_id).eq("active", true)
+      .in("role", ["owner", "admin"]).maybeSingle();
+    authorized = Boolean(membership);
+  }
+
+  if (!authorized) {
+    const { data: coordinator } = await admin.from("support_coordinators").select("id, workspace_id")
+      .eq("auth_user_id", user.id).eq("workspace_id", participant.workspace_id).eq("active", true).maybeSingle();
+    if (coordinator) {
+      const { data: assignment } = await admin.from("support_coordinator_participants")
+        .select("support_coordinator_id").eq("support_coordinator_id", coordinator.id)
+        .eq("participant_id", note.participant_id).maybeSingle();
+      authorized = Boolean(assignment);
+    }
+  }
+
+  if (!authorized) return { response: responseText("You do not have access to this service note.", 403) };
+  return { note, workerOwnsNote };
+}
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const authorization = req.headers.get("authorization") || "";
+    if (!authorization.startsWith("Bearer ")) {
+      return responseText("Sign in again before generating this PDF.", 401);
+    }
+    const requestBody = await req.json();
+    const noteId = String(requestBody.noteId || "").trim();
+    if (!noteId) return responseText("Choose a submitted note before generating a PDF.", 400);
+    const authorized = await loadAuthorizedNote(req, noteId);
+    if (authorized.response) return authorized.response;
+    const note = authorized.note;
+    const participant = note.participants || {};
+    const outcome = participant.participant_outcomes?.[0] || {};
+    const body = {
+      workerName: note.workers?.name || "Worker",
+      participantName: participant.name || "Participant",
+      cleEmail: requestBody.sendEmail === true && authorized.workerOwnsNote ? participant.cle_email : null,
+      shiftDate: note.shift_date,
+      timeIn: note.time_in,
+      timeOut: note.time_out,
+      service: note.service,
+      location: note.location,
+      outcomePhrase: outcome.outcome_phrase || "",
+      outcomeStatement: outcome.outcome_statement || "",
+      outcomeActionPlan: outcome.outcome_action_plan || "",
+      selectedGoals: buildSelectedGoals(note),
+      noteText: note.narrative || "",
+      signatureMode: note.worker_signature_mode || "typed",
+      typedSignature: note.worker_typed_signature || note.workers?.name || "",
+      drawnSignature: note.worker_drawn_signature || "",
+      signatureFont: note.worker_signature_font || "Pacifico",
+      dateCompleted: note.date_completed,
+      signedAt: note.signed_at,
+      attestationText: "I certify that this service note accurately reflects the services I provided.",
+    };
 
     const {
       workerName,
@@ -95,6 +216,7 @@ export async function POST(req) {
         day: "numeric",
         hour: "numeric",
         minute: "2-digit",
+        timeZone: "America/New_York",
         timeZoneName: "short",
       });
     }
@@ -330,7 +452,7 @@ export async function POST(req) {
     page.drawText(`Date of Service: ${formattedDate}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
-    page.drawText(`Date Completed: ${formattedDateCompleted}`, { x: LEFT, y, size: 12, font });
+    page.drawText(`Date Completed (system recorded): ${formattedDateCompleted}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
     page.drawText(`Time In: ${formattedTimeIn}`, { x: LEFT, y, size: 12, font });
@@ -472,7 +594,7 @@ for (const paragraphLines of noteLinesByParagraph) {
 
     y -= 30;
 
-    page.drawText(`Signed: ${formattedSignedAt}`, {
+    page.drawText(`Submitted and signed (system recorded): ${formattedSignedAt}`, {
       x: 50,
       y,
       size: 12,
@@ -532,6 +654,7 @@ pages.forEach((p, index) => {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Cache-Control": "no-store",
       },
     });
   } catch (error) {

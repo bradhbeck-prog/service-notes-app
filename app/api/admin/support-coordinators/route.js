@@ -138,9 +138,27 @@ export async function POST(request) {
     coordinator = data;
   }
 
+  let linkedAuthEmail = "";
+  if (coordinator?.auth_user_id) {
+    const { data: linkedAuth } = await admin.auth.admin.getUserById(coordinator.auth_user_id);
+    linkedAuthEmail = String(linkedAuth?.user?.email || "").trim().toLowerCase();
+  }
+
   if (coordinator) {
+    const emailChangedFromLinkedAccount = Boolean(
+      coordinator.auth_user_id && (linkedAuthEmail
+        ? linkedAuthEmail !== email
+        : String(coordinator.email || "").trim().toLowerCase() !== email)
+    );
     const { data: updated, error } = await admin.from("support_coordinators")
-      .update({ name, email, active: true, updated_at: new Date().toISOString() })
+      .update({
+        name,
+        email,
+        active: true,
+        auth_user_id: emailChangedFromLinkedAccount ? null : coordinator.auth_user_id,
+        invited_at: emailChangedFromLinkedAccount ? null : coordinator.invited_at,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", coordinator.id).eq("workspace_id", membership.workspace_id).select("*").single();
     if (error) return json({ error: error.message }, 400);
     coordinator = updated;
@@ -156,7 +174,7 @@ export async function POST(request) {
     .upsert({ support_coordinator_id: coordinator.id, participant_id: participant.id }, { onConflict: "support_coordinator_id,participant_id" });
   if (assignmentError) return json({ error: `Coordinator saved, but access could not be assigned: ${assignmentError.message}` }, 400);
 
-  if (coordinator.auth_user_id) {
+  if (coordinator.auth_user_id && (!linkedAuthEmail || linkedAuthEmail === email)) {
     return json({ message: `${coordinator.name} now has access to ${participant.name}. The existing account can be used immediately.`, coordinatorId: coordinator.id });
   }
 
