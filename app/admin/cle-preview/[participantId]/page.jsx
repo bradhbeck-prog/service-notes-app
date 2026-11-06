@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
+import { CleNoteCorrections } from "../../../components/NoteCorrections";
+import { RecentNoteSettings } from "../../../components/RecentNotes";
 
 const DELIVERY_OPTIONS = [
   { value: "immediate", label: "Email each note when submitted" },
@@ -482,6 +484,7 @@ export default function AdminClePreviewPage() {
 
           <section style={{ ...cardStyle, order: 6 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
+            <RecentNoteSettings participantId={participant.id} readOnly />
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               Read-only admin preview. CLEs can remove a worker's access from their own portal.
             </p>
@@ -607,6 +610,7 @@ export default function AdminClePreviewPage() {
                     {filteredNotes.map((note) => (
                       <div key={note.id} style={{ padding: 12, border: "1px solid #d9e7e4", borderRadius: 12, background: "#ffffff", display: "grid", gap: 6 }}>
                         <strong>{note.title}</strong>
+                        <CleNoteCorrections noteId={note.id} readOnly />
                         <div style={{ color: "#4b5563", fontSize: 14 }}>
                           Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
                         </div>

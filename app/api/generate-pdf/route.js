@@ -88,7 +88,11 @@ async function loadAuthorizedNote(request, noteId) {
   }
 
   if (!authorized) return { response: responseText("You do not have access to this service note.", 403) };
-  return { note, workerOwnsNote };
+  const { data: corrections, error: correctionError } = await admin.from("note_corrections")
+    .select("correction_text,correction_reason,signed_name,submitted_at")
+    .eq("note_id", note.id).eq("status", "submitted").order("submitted_at");
+  if (correctionError) return { response: responseText("Correction history could not be verified. Please try again or contact your administrator.", 503) };
+  return { note, workerOwnsNote, corrections: corrections || [] };
 }
 
 export async function POST(req) {
@@ -614,6 +618,30 @@ for (const paragraphLines of noteLinesByParagraph) {
     y -= 14;
     y = drawWrappedLines(page, attestationLines, 50, y, 12, font, 10);
 
+    // Addenda never replace the original note, signature, or submission timestamp.
+    for (const correction of authorized.corrections) {
+      let correctionPage = pdfDoc.addPage();
+      let correctionY = correctionPage.getHeight() - 50;
+      const paragraphs = [
+        "Service Note — Signed Correction",
+        `Original date of service: ${formattedDate}`,
+        `Original submission: ${formattedSignedAt}`,
+        "The original note is preserved on the preceding pages.",
+        `Correction: ${correction.correction_text}`,
+        `Reason: ${correction.correction_reason}`,
+        `Signed by: ${correction.signed_name}`,
+        `Correction submitted (system recorded): ${new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", dateStyle: "short", timeStyle: "long" }).format(new Date(correction.submitted_at))}`,
+        "I certify that this correction accurately reflects the services I provided.",
+      ];
+      for (const paragraph of paragraphs) {
+        for (const line of wrapText(paragraph, font, 11, CONTENT_WIDTH)) {
+          if (correctionY < 55) { correctionPage = pdfDoc.addPage(); correctionY = correctionPage.getHeight() - 50; }
+          correctionPage.drawText(line, { x: 50, y: correctionY, font, size: 11 });
+          correctionY -= 16;
+        }
+        correctionY -= 10;
+      }
+    }
 const pages = pdfDoc.getPages();
 const totalPages = pages.length;
 

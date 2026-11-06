@@ -23,6 +23,26 @@ async function findAuthUserByEmail(admin, email) {
   return null;
 }
 
+async function sendCoordinatorHelp(admin, coordinator, origin) {
+  // Never trust a stale auth link after an email typo has been corrected.
+  let account;
+  try { account = await findAuthUserByEmail(admin, coordinator.email.toLowerCase()); }
+  catch { return json({ error: "The account lookup failed. Please try again." }, 503); }
+  if (!account) return json({ error: "Save the coordinator with Assign & Send Setup Link to create an account for this email." }, 400);
+  const { error: linkError } = await admin.from("support_coordinators")
+    .update({ auth_user_id: account.id }).eq("id", coordinator.id).eq("workspace_id", coordinator.workspace_id);
+  if (linkError) return json({ error: "The corrected email could not be linked. Check for another coordinator using that account." }, 409);
+  const { data: generated, error } = await admin.auth.admin.generateLink({ type: "recovery", email: coordinator.email, options: { redirectTo: `${origin}/reset-password` } });
+  const setupLink = buildProtectedAuthLink(origin, generated);
+  if (error || !setupLink) return json({ error: error?.message || "A password-help link could not be created." }, 400);
+  try {
+    await sendPasswordHelpEmail({ to: coordinator.email, name: coordinator.name, actionLink: setupLink });
+    return json({ message: `Password-help email sent to ${coordinator.email}.`, coordinatorId: coordinator.id, setupLink });
+  } catch (error) {
+    return json({ message: "Access is ready, but the email could not be delivered. Use the backup link.", warning: error.message, coordinatorId: coordinator.id, setupLink });
+  }
+}
+
 async function getAdminContext(request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -99,21 +119,10 @@ export async function POST(request) {
 
   if (action === "send_help") {
     const { data: coordinator, error } = await admin.from("support_coordinators")
-      .select("id, name, email, auth_user_id").eq("id", coordinatorId)
+      .select("id, name, email, auth_user_id, workspace_id").eq("id", coordinatorId)
       .eq("workspace_id", membership.workspace_id).eq("active", true).maybeSingle();
-    if (error || !coordinator?.auth_user_id) return json({ error: "This Support Coordinator does not have a linked account yet." }, 404);
-    const origin = new URL(request.url).origin;
-    const { data: generated, error: resetError } = await admin.auth.admin.generateLink({
-      type: "recovery", email: coordinator.email, options: { redirectTo: `${origin}/reset-password` },
-    });
-    const resetLink = buildProtectedAuthLink(origin, generated);
-    if (resetError || !resetLink) return json({ error: resetError?.message || "A password link could not be created." }, 400);
-    try {
-      await sendPasswordHelpEmail({ to: coordinator.email, name: coordinator.name, actionLink: resetLink });
-      return json({ message: `Password-help email sent to ${coordinator.email}.`, setupLink: resetLink });
-    } catch (emailError) {
-      return json({ message: "The link was created, but the email could not be delivered.", warning: emailError.message, setupLink: resetLink });
-    }
+    if (error || !coordinator) return json({ error: "Support Coordinator not found." }, 404);
+    return sendCoordinatorHelp(admin, coordinator, new URL(request.url).origin);
   }
 
   if (action !== "assign") return json({ error: "Unknown Support Coordinator action." }, 400);
@@ -132,6 +141,7 @@ export async function POST(request) {
     const { data } = await admin.from("support_coordinators").select("*")
       .eq("id", coordinatorId).eq("workspace_id", membership.workspace_id).maybeSingle();
     coordinator = data;
+    if (!coordinator) return json({ error: "Coordinator not found in your workspace." }, 404);
   } else {
     const { data } = await admin.from("support_coordinators").select("*")
       .eq("workspace_id", membership.workspace_id).ilike("email", email).limit(1).maybeSingle();
@@ -140,7 +150,8 @@ export async function POST(request) {
 
   let linkedAuthEmail = "";
   if (coordinator?.auth_user_id) {
-    const { data: linkedAuth } = await admin.auth.admin.getUserById(coordinator.auth_user_id);
+    const { data: linkedAuth, error: linkedError } = await admin.auth.admin.getUserById(coordinator.auth_user_id);
+    if (linkedError) return json({ error: "The linked account could not be verified. Try again before changing access." }, 503);
     linkedAuthEmail = String(linkedAuth?.user?.email || "").trim().toLowerCase();
   }
 
@@ -175,7 +186,7 @@ export async function POST(request) {
   if (assignmentError) return json({ error: `Coordinator saved, but access could not be assigned: ${assignmentError.message}` }, 400);
 
   if (coordinator.auth_user_id && (!linkedAuthEmail || linkedAuthEmail === email)) {
-    return json({ message: `${coordinator.name} now has access to ${participant.name}. The existing account can be used immediately.`, coordinatorId: coordinator.id });
+    return sendCoordinatorHelp(admin, coordinator, new URL(request.url).origin);
   }
 
   let authUser;
@@ -185,7 +196,7 @@ export async function POST(request) {
   if (authUser) {
     const { error } = await admin.from("support_coordinators").update({ auth_user_id: authUser.id, invited_at: new Date().toISOString() }).eq("id", coordinator.id);
     if (error) return json({ error: error.message }, 400);
-    return json({ message: `${coordinator.name} now has access to ${participant.name} using the existing DreamNote account.`, coordinatorId: coordinator.id });
+    return sendCoordinatorHelp(admin, { ...coordinator, auth_user_id: authUser.id }, new URL(request.url).origin);
   }
 
   const origin = new URL(request.url).origin;

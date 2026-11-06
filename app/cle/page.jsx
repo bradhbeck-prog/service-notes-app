@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { CleNoteCorrections } from "../components/NoteCorrections";
+import { RecentNoteSettings } from "../components/RecentNotes";
 
 const SERVICE_CODES = {
   "In-Home and Community Supports": "W7060",
@@ -998,6 +1000,7 @@ export default function ClePortalPage() {
 
           <details style={{ ...cardStyle, order: 6 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Assigned Workers</summary>
+            <RecentNoteSettings participantId={participant.id} />
             <p style={{ marginTop: 0, color: "#4b5563" }}>
               These workers can currently open notes for {participant.name}. Removing access here only removes this participant assignment; it does not delete the worker or past notes.
             </p>
@@ -1200,6 +1203,7 @@ export default function ClePortalPage() {
                         }}
                       >
                         <strong>{note.title}</strong>
+                        <CleNoteCorrections noteId={note.id} />
                         <div style={{ color: "#4b5563", fontSize: 14 }}>
                           Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
                         </div>

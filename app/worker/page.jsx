@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../../lib/supabase";
+import { WorkerCorrections } from "../components/NoteCorrections";
+import { WorkerRecentNotes } from "../components/RecentNotes";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
@@ -637,6 +639,8 @@ if (selectedParticipant) {
 
       <p>Support Service Professional: {worker.name}</p>
       <p>Person Receiving Services: {selectedParticipant.name}</p>
+      <WorkerCorrections participantId={selectedParticipant.id} />
+      <WorkerRecentNotes key={selectedParticipant.id} participantId={selectedParticipant.id} />
 
       <div
         style={{
@@ -1430,6 +1434,7 @@ async function handleSaveDraft() {
       <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 700, margin: "0 auto" }}>
         <h1>DreamNote</h1>
         <p>Welcome, {worker.name}</p>
+        <WorkerCorrections />
         <h2>Assigned Persons Receiving Services</h2>
 
         {participants.length === 0 ? (
