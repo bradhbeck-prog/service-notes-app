@@ -1,6 +1,6 @@
 /* Presentation only: shared by the existing, permission-checked pages. */
-@font-face { font-family: "DreamNote Lato"; src: url("/fonts/Lato-Regular.ttf") format("truetype"); font-style: normal; font-weight: 400; font-display: swap; }
-@font-face { font-family: "DreamNote Lato"; src: url("/fonts/Lato-Bold.ttf") format("truetype"); font-style: normal; font-weight: 600 900; font-display: swap; }
+@font-face { font-family: "DreamNote PT Sans"; src: url("/fonts/PTSans-Regular.ttf") format("truetype"); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: "DreamNote PT Sans"; src: url("/fonts/PTSans-Bold.ttf") format("truetype"); font-style: normal; font-weight: 600 900; font-display: swap; }
 @font-face { font-family: "DreamNote Script"; src: url("/fonts/Lobster-Regular.ttf") format("truetype"); font-style: normal; font-weight: 400; font-display: swap; }
 :root {
   --dn-bg: #fff; --dn-surface: #fff; --dn-form: #f7f6f2; --dn-border: #deded8;
@@ -8,7 +8,7 @@
   --dn-blue: #2966a8; --dn-blue-pale: #f7f6f2; --dn-pink: #f18da9; --dn-pink-pale: #fff0f5;
   --dn-yellow: #ffdf57; --dn-yellow-pale: #fff7cf;
 }
-html, body { background: #fff; font-family: "DreamNote Lato", Arial, sans-serif; line-height: 1.5; }
+html, body { background: #fff; font-family: "DreamNote PT Sans", Arial, sans-serif; line-height: 1.5; }
 .dn-color-ribbon { display: block; height: 7px; background: var(--dn-pink); border-left: 6px solid var(--dn-blue); }
 .dn-color-ribbon span { display: none; }
 .dn-brandbar { position: relative; max-width: none; margin: 0; display: flex; align-items: center; gap: 0; padding: 12px max(24px, calc((100vw - 1240px)/2)); border-left: 6px solid var(--dn-blue); border-bottom: 3px solid #159b8d; background: #fbfaf7; letter-spacing: 0; }
@@ -16,7 +16,7 @@ html, body { background: #fff; font-family: "DreamNote Lato", Arial, sans-serif;
 .dn-brandbar img { display: block; width: 86px; height: 86px; object-fit: contain; border-radius: 0; box-shadow: none; }
 .dn-brandbar span { margin-left: -8px; transform: translateY(4px); font: 400 38px/1 "DreamNote Script", cursive; color: #02979d; white-space: nowrap; }
 .dn-app { min-height: calc(100vh - 120px); border-left: 6px solid var(--dn-blue); }
-.dn-app main { font-family: "DreamNote Lato", Arial, sans-serif !important; font-size: 17px; }
+.dn-app main { font-family: "DreamNote PT Sans", Arial, sans-serif !important; font-size: 17px; }
 h1, h2, h3 { text-decoration: none; letter-spacing: 0; line-height: 1.25; }
 .dn-app h1 { font-size: 30px !important; font-weight: 700; }
 .dn-app h2 { font-size: 23px; font-weight: 700; }
