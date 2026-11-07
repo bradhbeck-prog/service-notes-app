@@ -69,7 +69,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--dn-primary); f
 .dn-worker-heading { background: white !important; border: 0 !important; border-radius: 0 !important; padding: 0 0 18px !important; border-bottom: 1px solid var(--dn-border) !important; }
 .dn-note-fields { background: var(--dn-form) !important; border-color: #e4e1da !important; border-radius: 10px !important; max-width: none !important; }
 .dn-note-goal { border-left: 3px solid #159b8d !important; }
-.dn-note-goal:nth-child(even) { border-left-color: var(--dn-pink) !important; }
+.dn-note-goal:nth-child(4n + 2) { border-left-color: var(--dn-pink) !important; }
+.dn-note-goal:nth-child(4n + 3) { border-left-color: var(--dn-blue) !important; }
+.dn-note-goal:nth-child(4n + 4) { border-left-color: var(--dn-yellow) !important; }
 .dn-auth-page { min-height: calc(100vh - 120px) !important; }
 .dn-reset-page { max-width: 560px; margin: 0 auto; }
 .dn-reset-page form { padding: 20px; border: 1px solid #e4e1da; border-radius: 10px; display: grid; gap: 16px; }
