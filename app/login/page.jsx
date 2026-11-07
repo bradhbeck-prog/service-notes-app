@@ -143,6 +143,7 @@ async function handleLogin(e) {
 }
 return (
     <main
+      className="dn-auth-page"
       style={{
         minHeight: "100vh",
         padding: 30,
@@ -165,7 +166,7 @@ return (
         }}
       >
       <h1 style={{ marginTop: 0, marginBottom: 8, color: "var(--dn-primary)" }}>
-        DreamNote
+        Sign In
       </h1>
       <p style={{ marginTop: 0, color: "#4b5563" }}>
         Sign in with your email and password.

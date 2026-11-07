@@ -235,6 +235,7 @@ export default function NoteTemplatePreviewPage() {
       </div>
 
       <div
+        className="dn-worker-heading"
         style={{
           marginBottom: 20,
           padding: "18px 20px",
@@ -243,7 +244,7 @@ export default function NoteTemplatePreviewPage() {
           borderRadius: 16,
         }}
       >
-        <h1 style={{ margin: 0, color: "var(--dn-primary)" }}>DreamNote</h1>
+        <h1 style={{ margin: 0 }}>Service Note</h1>
         <p style={{ marginBottom: 0, color: "#4b5563" }}>
           {viewerRole === "admin" ? "Admin preview" : "CLE preview"}
         </p>
@@ -260,7 +261,7 @@ export default function NoteTemplatePreviewPage() {
           <p>Support Service Professional: Worker Name</p>
           <p>Person Receiving Services: {participant.name}</p>
 
-          <div style={{ display: "grid", gap: 16, marginTop: 20, ...cardStyle }}>
+          <div className="dn-note-fields" style={{ display: "grid", gap: 16, marginTop: 20, ...cardStyle }}>
             <div>
               <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
                 Shift Date
@@ -380,6 +381,7 @@ export default function NoteTemplatePreviewPage() {
                           return (
                             <div
                               key={goal.id}
+                              className="dn-note-goal"
                               style={{
                                 padding: 10,
                                 border: "1px solid var(--dn-border)",

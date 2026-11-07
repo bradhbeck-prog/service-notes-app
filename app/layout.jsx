@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./refresh.css";
 
 export const metadata = {
   title: "DreamNote",
@@ -17,10 +18,10 @@ export default function RootLayout({ children }) {
           <span /><span /><span /><span />
         </div>
         <div className="dn-brandbar">
-          <img src="/icon-192.png" alt="" width="46" height="46" />
-          <span>DreamNote</span>
+          <img src="/dreamnote-d-transparent.png" alt="DreamNote" width="86" height="86" />
+          <span aria-hidden="true">reamNote</span>
         </div>
-        {children}
+        <div className="dn-app">{children}</div>
       </body>
     </html>
   )

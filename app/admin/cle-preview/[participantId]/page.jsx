@@ -275,6 +275,7 @@ export default function AdminClePreviewPage() {
       </div>
 
       <div
+        className="dn-worker-heading"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -287,10 +288,7 @@ export default function AdminClePreviewPage() {
         }}
       >
         <div>
-          <h1 style={{ marginBottom: 6 }}>DreamNote CLE Portal</h1>
-          <p style={{ marginTop: 0, color: "#4b5563" }}>
-            Review service notes and delivery preferences for your participant.
-          </p>
+          <h1 style={{ marginBottom: 6 }}>CLE Portal</h1>
         </div>
       </div>
 
@@ -329,7 +327,7 @@ export default function AdminClePreviewPage() {
             >
               View Blank Service Note Template
             </button>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+            <div className="dn-portal-stats" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <div style={statCardStyle}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{notes.length}</div>
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Submitted notes</div>
@@ -358,7 +356,7 @@ export default function AdminClePreviewPage() {
 
             <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
               {groupedGoals.map((group) => (
-                <section key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
+                <section className="dn-goal-category" key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
                     <div style={{ display: "flex", gap: 6 }}><button type="button" disabled style={disabledButtonStyle}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove Category</button>}</div>

@@ -161,7 +161,7 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
+    <main className="dn-reset-page" style={{ padding: 40 }}>
       <h1>Reset Password</h1>
 
       {pendingVerification ? (
@@ -191,6 +191,6 @@ export default function ResetPasswordPage() {
       </form>
 
       <p>{message}</p>
-    </div>
+    </main>
   );
 }

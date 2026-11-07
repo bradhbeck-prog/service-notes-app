@@ -707,6 +707,7 @@ export default function ClePortalPage() {
   return (
     <main style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
       <div
+        className="dn-worker-heading"
         style={{
           display: "flex",
           justifyContent: "space-between",
@@ -719,10 +720,7 @@ export default function ClePortalPage() {
         }}
       >
         <div>
-          <h1 style={{ marginBottom: 6 }}>DreamNote CLE Portal</h1>
-          <p style={{ marginTop: 0, color: "#4b5563" }}>
-            Review service notes and delivery preferences for your participant.
-          </p>
+          <h1 style={{ marginBottom: 6 }}>CLE Portal</h1>
         </div>
         <button onClick={handleSignOut} style={secondaryButtonStyle}>
           Sign Out
@@ -749,7 +747,7 @@ export default function ClePortalPage() {
             >
               View Blank Service Note Template
             </button>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+            <div className="dn-portal-stats" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <div style={{ ...statCardStyle, borderTop: "4px solid var(--dn-blue)" }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-blue)" }}>{notes.length}</div>
                 <div style={{ color: "#4b5563", fontSize: 14 }}>Submitted notes</div>
@@ -787,7 +785,7 @@ export default function ClePortalPage() {
 
             <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
               {groupedGoals.map((group) => (
-                <section key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
+                <section className="dn-goal-category" key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button

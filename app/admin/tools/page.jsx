@@ -998,10 +998,7 @@ async function handleUpdateGoal() {
   return (
     <main style={{ padding: 30, fontFamily: "Arial", maxWidth: 900, margin: "0 auto" }}>
       <a href="/admin" style={{ display: "inline-block", marginBottom: 12 }}>← Back to participant dashboard</a>
-      <h1>DreamNote Admin — Advanced Tools</h1>
-      <p style={{ color: "#444" }}>
-        Use this page to manage workers, participants, CLE emails, assignments, goals, services, and outcomes.
-      </p>
+      <h1>Advanced Tools</h1>
 
       {message && (
         <p style={{ marginTop: 10, color: "#0a5" }}>{message}</p>

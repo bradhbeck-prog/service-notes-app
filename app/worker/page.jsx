@@ -626,6 +626,7 @@ if (selectedParticipant) {
       }}
     >
       <div
+        className="dn-worker-heading"
         style={{
           marginBottom: 20,
           padding: "18px 20px",
@@ -634,7 +635,7 @@ if (selectedParticipant) {
           borderRadius: 16,
         }}
       >
-        <h1 style={{ margin: 0, color: "var(--dn-primary)" }}>DreamNote</h1>
+        <h1 style={{ margin: 0 }}>Service Note</h1>
       </div>
 
       <p>Support Service Professional: {worker.name}</p>
@@ -643,6 +644,7 @@ if (selectedParticipant) {
       <WorkerRecentNotes key={selectedParticipant.id} participantId={selectedParticipant.id} />
 
       <div
+        className="dn-note-fields"
         style={{
           display: "grid",
           gap: 16,
@@ -877,6 +879,7 @@ onChange={(e) => {
                       return (
                         <div
                           key={goal.id}
+                          className="dn-note-goal"
                           style={{
                             padding: 10,
                             border: isChecked ? "2px solid var(--dn-pink)" : "1px solid var(--dn-border)",
