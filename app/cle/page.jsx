@@ -705,7 +705,7 @@ export default function ClePortalPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
+    <main className="dn-portal" style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
       <div
         className="dn-worker-heading"
         style={{
@@ -734,7 +734,7 @@ export default function ClePortalPage() {
           <p>No participant is linked to this CLE login yet.</p>
         </section>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div className="dn-portal-sections" style={{ display: "flex", flexDirection: "column" }}>
           <details open style={{ ...cardStyle, order: 1 }}>
             <summary style={{ cursor: "pointer", fontSize: 26, fontWeight: 800, marginBottom: 10 }}>{participant.name}</summary>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
@@ -1090,7 +1090,7 @@ export default function ClePortalPage() {
 
           <details open style={{ ...cardStyle, order: 2 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Submitted Service Notes</summary>
-            <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
+            <div className="dn-archive" style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
               <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
               <p style={{ color: "#4b5563", marginTop: 0 }}>
                 Download one combined PDF for a calendar month. Each service note starts on its own page.
@@ -1176,6 +1176,7 @@ export default function ClePortalPage() {
                   <p>No notes match those filters.</p>
                 ) : (
                   <div
+                    className="dn-note-list"
                     style={{
                       display: "grid",
                       gap: 8,

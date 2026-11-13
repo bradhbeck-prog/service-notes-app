@@ -203,6 +203,7 @@ export default function NoteTemplatePreviewPage() {
 
   return (
     <main
+      className="dn-note-page"
       style={{
         minHeight: "100vh",
         background: "var(--dn-bg)",
@@ -262,6 +263,7 @@ export default function NoteTemplatePreviewPage() {
           <p>Person Receiving Services: {participant.name}</p>
 
           <div className="dn-note-fields" style={{ display: "grid", gap: 16, marginTop: 20, ...cardStyle }}>
+            <h2 className="dn-note-section-title"><span className="dn-step dn-step-blue" aria-hidden="true">01</span>Shift details</h2>
             <div>
               <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
                 Shift Date
@@ -348,6 +350,7 @@ export default function NoteTemplatePreviewPage() {
             </div>
 
             <div
+              className="dn-note-goals"
               style={{
                 marginTop: 10,
                 padding: 16,
@@ -356,13 +359,14 @@ export default function NoteTemplatePreviewPage() {
                 background: "#fff",
               }}
             >
-              <div style={{ fontWeight: 700, marginBottom: 12 }}>Goals worked on today</div>
+              <h2 className="dn-note-section-title"><span className="dn-step dn-step-pink" aria-hidden="true">02</span>Goals worked on</h2>
 
               {visibleGoals.length > 0 ? (
                 <div style={{ display: "grid", gap: 16 }}>
                   {Object.entries(groupedVisibleGoals).map(([category, goals]) => (
                     <div key={category}>
                       <div
+                        className="dn-note-category"
                         style={{
                           fontWeight: 700,
                           fontSize: 14,
@@ -422,11 +426,12 @@ export default function NoteTemplatePreviewPage() {
                               </label>
 
                               {isChecked && goal.requires_prompt_level && (
-                                <div style={{ marginTop: 10 }}>
-                                  <label style={{ fontSize: 13, fontWeight: 700 }}>
-                                    Prompt level
+                                <div className="dn-note-response" style={{ marginTop: 10 }}>
+                                  <label htmlFor={`prompt-${goalId}`} style={{ fontSize: 13, fontWeight: 700 }}>
+                                    Prompt level <small>Required</small>
                                   </label>
                                   <select
+                                    id={`prompt-${goalId}`}
                                     value={promptLevels[goalId] || ""}
                                     onChange={(e) =>
                                       setPromptLevels((prev) => ({
@@ -455,8 +460,10 @@ export default function NoteTemplatePreviewPage() {
                               )}
 
                               {isChecked && goal.requires_detail && (
-                                <div style={{ marginTop: 10 }}>
+                                <div className="dn-note-response" style={{ marginTop: 10 }}>
+                                  <label htmlFor={`detail-${goalId}`}>{goal.detail_prompt || "Add details"}<small>Required</small></label>
                                   <input
+                                    id={`detail-${goalId}`}
                                     type="text"
                                     disabled
                                     placeholder={goal.detail_prompt || "Add details"}
@@ -477,6 +484,7 @@ export default function NoteTemplatePreviewPage() {
             </div>
 
             <div style={{ marginTop: 10 }}>
+              <h2 className="dn-note-section-title"><span className="dn-step dn-step-yellow" aria-hidden="true">03</span>Activities &amp; support</h2>
               <label
                 htmlFor="noteText"
                 style={{
@@ -508,6 +516,7 @@ export default function NoteTemplatePreviewPage() {
 
             <div style={{ marginTop: 10 }}>
               <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
+                <span className="dn-note-section-title"><span className="dn-step dn-step-teal" aria-hidden="true">04</span>Signature</span>
                 Signature Type
               </label>
               <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>

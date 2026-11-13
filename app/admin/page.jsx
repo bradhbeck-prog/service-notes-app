@@ -512,7 +512,7 @@ export default function AdminDashboard() {
   if (checking) return <main style={{ padding: 30 }}>Checking access…</main>;
   if (!authorized) return <main style={{ maxWidth: 620, margin: "70px auto", padding: 24 }}><h1>Administrator access required</h1><p>Please sign in with your DreamNote administrator account.</p><Link href="/login" style={button}>Go to sign in</Link></main>;
 
-  return <main style={{ maxWidth: 1180, margin: "0 auto", padding: "34px 20px 70px", color: C.ink }}>
+  return <main className="dn-workspace" style={{ maxWidth: 1180, margin: "0 auto", padding: "34px 20px 70px", color: C.ink }}>
     <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 20, marginBottom: 26 }}><h1 style={{ margin: 0 }}>Administrator</h1><button onClick={signOut} style={secondary}>Sign Out</button></header>
     {message && <div role="status" style={{ padding: 14, marginBottom: 18, borderRadius: 9, background: "#fff8df", border: "1px solid #ead58a" }}>{message}</div>}
     {setupLink && <div style={{ ...card, marginBottom: 18, background: "var(--dn-yellow-pale)", borderColor: C.yellow }}><strong>Backup access link</strong><p style={{ color: C.muted, margin: "6px 0 10px" }}>Copy this link and send it directly if the email is filtered or its button is not clickable.</p><textarea readOnly value={setupLink} rows={3} style={{ ...input, resize: "vertical" }} /><button type="button" onClick={() => navigator.clipboard.writeText(setupLink)} style={{ ...secondary, marginTop: 8 }}>Copy Link</button></div>}

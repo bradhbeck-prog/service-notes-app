@@ -616,6 +616,7 @@ const groupedVisibleGoals = visibleGoals.reduce((acc, goal) => {
 if (selectedParticipant) {
   return (
     <main
+      className="dn-note-page"
       style={{
         minHeight: "100vh",
         background: "var(--dn-bg)",
@@ -656,6 +657,7 @@ if (selectedParticipant) {
           border: "1px solid var(--dn-border)",
         }}
       >
+        <h2 className="dn-note-section-title"><span className="dn-step dn-step-blue" aria-hidden="true">01</span>Shift details</h2>
         <div>
           <label
             style={{
@@ -842,6 +844,7 @@ onChange={(e) => {
         </div>
 
         <div
+          className="dn-note-goals"
           style={{
             marginTop: 20,
             padding: 16,
@@ -850,13 +853,14 @@ onChange={(e) => {
             background: "#fff",
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: 12 }}>Goals worked on today</div>
+          <h2 className="dn-note-section-title"><span className="dn-step dn-step-pink" aria-hidden="true">02</span>Goals worked on</h2>
 
           {visibleGoals.length > 0 ? (
             <div style={{ display: "grid", gap: 16 }}>
               {Object.entries(groupedVisibleGoals).map(([category, goals]) => (
                 <div key={category}>
                   <div
+                    className="dn-note-category"
                     style={{
                       fontWeight: 700,
                       fontSize: 14,
@@ -926,11 +930,12 @@ onChange={(e) => {
                           </label>
 
                           {isChecked && goal.requires_prompt_level && (
-                            <div style={{ marginTop: 10 }}>
-                              <label style={{ fontSize: 13, fontWeight: 700 }}>
-                                Prompt level
+                            <div className="dn-note-response" style={{ marginTop: 10 }}>
+                              <label htmlFor={`prompt-${goalId}`} style={{ fontSize: 13, fontWeight: 700 }}>
+                                Prompt level <small>Required</small>
                               </label>
                               <select
+                                id={`prompt-${goalId}`}
                                 required
                                 aria-required="true"
                                 value={promptLevels[goalId] || ""}
@@ -961,8 +966,10 @@ onChange={(e) => {
                           )}
 
                           {isChecked && goal.requires_detail && (
-                            <div style={{ marginTop: 10 }}>
+                            <div className="dn-note-response" style={{ marginTop: 10 }}>
+                              <label htmlFor={`detail-${goalId}`}>{goal.detail_prompt || "Add details"}<small>Required</small></label>
                               <input
+                                id={`detail-${goalId}`}
                                 type="text"
                                 required
                                 aria-required="true"
@@ -998,6 +1005,7 @@ onChange={(e) => {
         </div>
 
         <div style={{ marginTop: 20 }}>
+          <h2 className="dn-note-section-title"><span className="dn-step dn-step-yellow" aria-hidden="true">03</span>Activities &amp; support</h2>
           <label
             htmlFor="noteText"
             style={{
@@ -1037,6 +1045,7 @@ onChange={(e) => {
               color: "var(--dn-text)",
             }}
           >
+            <span className="dn-note-section-title"><span className="dn-step dn-step-teal" aria-hidden="true">04</span>Signature</span>
             Signature Type
           </label>
 

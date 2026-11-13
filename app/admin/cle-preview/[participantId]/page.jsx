@@ -252,7 +252,7 @@ export default function AdminClePreviewPage() {
   }
 
   return (
-    <main style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
+    <main className="dn-portal" style={{ padding: 24, fontFamily: "Arial", maxWidth: 980, margin: "0 auto" }}>
       <button
         type="button"
         onClick={() => { window.location.href = "/admin"; }}
@@ -314,7 +314,7 @@ export default function AdminClePreviewPage() {
           <p>No participant was found for this preview.</p>
         </section>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div className="dn-portal-sections" style={{ display: "flex", flexDirection: "column" }}>
           <details open style={{ ...cardStyle, order: 1 }}>
             <summary style={{ cursor: "pointer", fontSize: 26, fontWeight: 800, marginBottom: 10 }}>{participant.name}</summary>
             <p style={{ marginTop: 0, color: "#4b5563" }}>
@@ -545,7 +545,7 @@ export default function AdminClePreviewPage() {
 
           <section style={{ ...cardStyle, order: 2 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
-            <div style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
+            <div className="dn-archive" style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
               <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
               <p style={{ color: "#4b5563", marginTop: 0 }}>
                 Download one combined PDF for a calendar month. Each service note starts on its own page.
@@ -604,7 +604,7 @@ export default function AdminClePreviewPage() {
                 {filteredNotes.length === 0 ? (
                   <p>No notes match those filters.</p>
                 ) : (
-                  <div style={{ display: "grid", gap: 8, maxHeight: 430, overflowY: "auto", padding: 10, border: "2px solid #cfe5df", borderRadius: 14, background: "#f8fffd" }}>
+                  <div className="dn-note-list" style={{ display: "grid", gap: 8, maxHeight: 430, overflowY: "auto", padding: 10, border: "2px solid #cfe5df", borderRadius: 14, background: "#f8fffd" }}>
                     {filteredNotes.map((note) => (
                       <div key={note.id} style={{ padding: 12, border: "1px solid #d9e7e4", borderRadius: 12, background: "#ffffff", display: "grid", gap: 6 }}>
                         <strong>{note.title}</strong>
