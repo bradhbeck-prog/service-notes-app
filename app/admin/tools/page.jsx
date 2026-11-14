@@ -1001,7 +1001,7 @@ async function handleUpdateGoal() {
       <h1>Advanced Tools</h1>
 
       {message && (
-        <p style={{ marginTop: 10, color: "#0a5" }}>{message}</p>
+        <p style={{ marginTop: 10, color: "var(--dn-success, #0a5)" }}>{message}</p>
       )}
 
       <section style={{ marginTop: 20, padding: 16, border: "1px solid #ccc", borderRadius: 8 }}>
@@ -1271,7 +1271,7 @@ async function handleUpdateGoal() {
   </select>
 
   {goalParticipantId && goalCategoryName && (
-    <div style={{ fontSize: 14, color: "#666" }}>
+    <div style={{ fontSize: 14, color: "var(--dn-muted, #666)" }}>
       Last category used: <strong>{goalCategoryName}</strong>
     </div>
   )}
@@ -1566,9 +1566,9 @@ async function handleUpdateGoal() {
                       : "Send Password Reset Link"}
                   </button>
                   {workerResetLinks[worker.id] && (
-                    <div style={{ marginTop: 8, maxWidth: 720, padding: 10, border: "1px solid #149f91", borderRadius: 8, background: "#e8faf3" }}>
-                      <strong style={{ display: "block", color: "#166534", marginBottom: 6 }}>Backup password link</strong>
-                      <input readOnly value={workerResetLinks[worker.id]} style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #a7d9cf", borderRadius: 6, background: "white" }} />
+                    <div style={{ marginTop: 8, maxWidth: 720, padding: 10, border: "1px solid #149f91", borderRadius: 8, background: "var(--dn-good-panel, #e8faf3)" }}>
+                      <strong style={{ display: "block", color: "var(--dn-success, #166534)", marginBottom: 6 }}>Backup password link</strong>
+                      <input readOnly value={workerResetLinks[worker.id]} style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #a7d9cf", borderRadius: 6, background: "var(--dn-legacy-panel, white)" }} />
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
                         <button
                           type="button"
@@ -1637,14 +1637,14 @@ async function handleUpdateGoal() {
                         borderRadius: 8,
                         border: `1px solid ${cleAccessNotices[participant.id].type === "success" ? "#149f91" : "#dc2626"}`,
                         background: cleAccessNotices[participant.id].type === "success" ? "#e8faf3" : "#fff0f0",
-                        color: cleAccessNotices[participant.id].type === "success" ? "#166534" : "#991b1b",
+                        color: cleAccessNotices[participant.id].type === "success" ? "var(--dn-success, #166534)" : "var(--dn-error, #991b1b)",
                         fontWeight: 700,
                       }}
                     >
                       {cleAccessNotices[participant.id].text}
                       {cleAccessNotices[participant.id].link && (
                         <div style={{ marginTop: 8 }}>
-                          <input readOnly value={cleAccessNotices[participant.id].link} style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #a7d9cf", borderRadius: 6, background: "white", color: "#1f2937" }} />
+                          <input readOnly value={cleAccessNotices[participant.id].link} style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #a7d9cf", borderRadius: 6, background: "var(--dn-legacy-panel, white)", color: "#1f2937" }} />
                           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
                             <button
                               type="button"
@@ -1715,7 +1715,7 @@ async function handleUpdateGoal() {
                       .join(", ")
                   : "None"}
               </div>
-              <div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 8, background: "#fafafa" }}>
+              <div style={{ marginTop: 12, padding: 12, border: "1px solid #ddd", borderRadius: 8, background: "var(--dn-legacy-panel, #fafafa)" }}>
                 <strong>Prompt levels for this participant:</strong>
                 <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                   {DEFAULT_PROMPT_LEVELS.map((level) => (
@@ -1790,7 +1790,7 @@ async function handleUpdateGoal() {
           padding: 12,
           border: "1px solid #ccc",
           borderRadius: 8,
-          background: "#fff",
+          background: "var(--dn-legacy-panel, #fff)",
         }}
       >
         <h4 style={{ marginTop: 0 }}>Edit Goal</h4>

@@ -38,7 +38,7 @@ export async function GET(request) {
   const limit = settings?.note_limit || 0;
   if (![5,10].includes(limit)) return json({ noteLimit: 0, notes: [] });
   const { data: notes, error } = await db.from("service_notes")
-    .select("id,shift_date,service,time_in,time_out,location,narrative,signed_at,goals,goal_details,prompt_levels,workers(name),service_note_goals(prompt_level,participant_goals(id,goal_label,category_name))")
+    .select("id,shift_date,shift_end_date,service,time_in,time_out,location,narrative,signed_at,goals,goal_details,prompt_levels,workers(name),service_note_goals(prompt_level,participant_goals(id,goal_label,category_name))")
     .eq("participant_id", participant.id).eq("status", "submitted").order("shift_date", { ascending: false }).order("signed_at", { ascending: false }).order("id", { ascending: false }).limit(limit);
   if (error) return json({ error: "Recent notes could not be loaded." }, 503);
   const ids = (notes || []).map(note => note.id);

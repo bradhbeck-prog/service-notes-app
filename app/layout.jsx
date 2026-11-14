@@ -1,5 +1,7 @@
 import "./globals.css";
 import "./refresh.css";
+import "./album-cut.css";
+import Appearance from "./components/Appearance";
 
 export const metadata = {
   title: "DreamNote",
@@ -17,10 +19,7 @@ export default function RootLayout({ children }) {
         <div className="dn-color-ribbon" aria-hidden="true">
           <span /><span /><span /><span />
         </div>
-        <div className="dn-brandbar">
-          <img src="/dreamnote-d-transparent.png" alt="DreamNote" width="86" height="86" />
-          <span aria-hidden="true">reamNote</span>
-        </div>
+        <Appearance />
         <div className="dn-app">{children}</div>
       </body>
     </html>

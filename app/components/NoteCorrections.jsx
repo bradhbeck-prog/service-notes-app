@@ -78,7 +78,7 @@ export function WorkerCorrections({ participantId }) {
         <summary style={{ cursor: "pointer", fontWeight: 700 }}>{row.participants?.name} · {note.shift_date} · {note.service}</summary>
         <p>CLE request ({date(row.requested_at)}): {row.request_reason}</p>
         <details><summary>Read original note</summary>
-          <p>{note.workers?.name} · {note.time_in}–{note.time_out} · {note.location}</p>
+          <p>{note.workers?.name} · {note.time_in}–{note.shift_end_date && note.shift_end_date !== note.shift_date ? `${note.shift_end_date} ` : ""}{note.time_out} · {note.location}</p>
           <p>Originally submitted: {date(note.signed_at)}</p>
           {(note.service_note_goals || []).map((goal, index) => <p key={index}>{goal.participant_goals?.category_name} · {goal.participant_goals?.goal_label}{goal.prompt_level ? ` — ${goal.prompt_level}` : ""}</p>)}
           {(note.goal_response_snapshot || []).map(goal => <p key={goal.id}>{goal.goal_label} {goal.prompt_level && `— ${goal.prompt_level}`} {goal.detail_value}</p>)}

@@ -53,9 +53,9 @@ export function WorkerRecentNotes({ participantId }) {
     {open && <div style={{ maxHeight: "60vh", overflowY: "auto", overscrollBehavior: "contain", marginTop: 12 }}>
       <p>Read-only examples for this participant. Complete your own note for the services you actually provide.</p>
       {busy && <p role="status">Loading…</p>}{message && <p role="status">{message}</p>}
-      {notes.map(note => <details key={note.id} style={{ padding: 12, marginBottom: 10, background: "white", borderRadius: 8, overflowWrap: "anywhere" }}>
+      {notes.map(note => <details key={note.id} style={{ padding: 12, marginBottom: 10, background: "var(--dn-legacy-panel, white)", borderRadius: 8, overflowWrap: "anywhere" }}>
         <summary>{note.shift_date} · {note.service} · {note.workers?.name}</summary>
-        <p>{note.time_in}–{note.time_out} · {note.location}</p>
+        <p>{note.time_in}–{note.shift_end_date && note.shift_end_date !== note.shift_date ? `${note.shift_end_date} ` : ""}{note.time_out} · {note.location}</p>
         {(note.goal_responses || []).map((goal, index) => <p key={index}>{goal.label}{goal.prompt ? ` — ${goal.prompt}` : ""}{goal.detail ? `: ${goal.detail}` : ""}</p>)}
         <p style={{ whiteSpace: "pre-wrap" }}>{note.narrative}</p>
         {note.corrections.map((row, index) => <aside key={index} style={{ ...panel, whiteSpace: "pre-wrap" }}><strong>Signed correction</strong><p>{row.correction_text}</p><p>Reason: {row.correction_reason}</p><p>{row.signed_name} · {new Date(row.submitted_at).toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" })}</p></aside>)}

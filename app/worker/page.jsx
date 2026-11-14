@@ -5,6 +5,8 @@ import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../../lib/supabase";
 import { WorkerCorrections } from "../components/NoteCorrections";
 import { WorkerRecentNotes } from "../components/RecentNotes";
+import ShiftDates from "../components/ShiftDates";
+import { easternShiftDefaults, shiftInterval, suggestedEndDate } from "../../lib/shift-dates.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
@@ -66,14 +68,11 @@ function getParticipantPromptLevels(participant) {
 
 
 function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
+  return easternShiftDefaults().date;
 }
 
 function getCurrentTime() {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
+  return easternShiftDefaults().time;
 }
 
 
@@ -129,6 +128,7 @@ export default function Page() {
   const [selectedParticipant, setSelectedParticipant] = useState(null);
   const [noteText, setNoteText] = useState("");
   const [shiftDate, setShiftDate] = useState(getTodayDate());
+  const [endDateOverride, setEndDateOverride] = useState(null);
   const [timeIn, setTimeIn] = useState(getCurrentTime());
   const [timeOut, setTimeOut] = useState(getCurrentTime());
   const [location, setLocation] = useState("community");
@@ -147,6 +147,18 @@ const [currentNoteId, setCurrentNoteId] = useState(null);
 const [hasDraft, setHasDraft] = useState(false);
 const [loadingDraft, setLoadingDraft] = useState(true);
 const [draftParticipantIds, setDraftParticipantIds] = useState([]);
+const [dirty, setDirty] = useState(false);
+const shiftEndDate = endDateOverride ?? suggestedEndDate(shiftDate, timeIn, timeOut);
+
+useEffect(() => {
+  if (!dirty) return;
+  function warn(event) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
+  window.addEventListener("beforeunload", warn);
+  return () => window.removeEventListener("beforeunload", warn);
+}, [dirty]);
 
 function resetEditorForParticipant(participant) {
   const firstService = participant?.participant_services?.find((item) => item.active);
@@ -155,6 +167,7 @@ function resetEditorForParticipant(participant) {
   setSelectedParticipant(participant);
   setService(firstService?.service_name || "");
   setShiftDate(getTodayDate());
+  setEndDateOverride(null);
   setTimeIn(getCurrentTime());
   setTimeOut(getCurrentTime());
   setLocation("community");
@@ -165,7 +178,9 @@ function resetEditorForParticipant(participant) {
   setTypedSignature("");
   setDrawnSignature("");
   setSignatureMode("typed");
+  setSignatureFont("Pacifico");
   setSignatureAttested(false);
+  setDirty(false);
   sigCanvasRef.current?.clear?.();
 }
 
@@ -176,8 +191,10 @@ function applyDraftToEditor(draft, participant) {
   setSelectedParticipant(participant);
   setService(draft.service || firstService?.service_name || "");
   setShiftDate(draft.shift_date || getTodayDate());
-  setTimeIn(draft.time_in || getCurrentTime());
-  setTimeOut(draft.time_out || getCurrentTime());
+  const inferred = suggestedEndDate(draft.shift_date || "", draft.time_in || "", draft.time_out || "");
+  setEndDateOverride(draft.shift_end_date && draft.shift_end_date !== inferred ? draft.shift_end_date : null);
+  setTimeIn(draft.time_in?.slice(0, 5) || getCurrentTime());
+  setTimeOut(draft.time_out?.slice(0, 5) || getCurrentTime());
   setLocation(draft.location || "community");
   setNoteText(draft.narrative || "");
   setSelectedGoals(Array.isArray(draft.goals) ? draft.goals.map(String) : []);
@@ -186,7 +203,9 @@ function applyDraftToEditor(draft, participant) {
   setTypedSignature(draft.worker_typed_signature || "");
   setDrawnSignature(draft.worker_drawn_signature || "");
   setSignatureMode(draft.worker_signature_mode === "draw" ? "draw" : "typed");
+  setSignatureFont(draft.worker_signature_font || "Pacifico");
   setSignatureAttested(false);
+  setDirty(false);
 }
 
 async function openParticipant(participant, workerOverride = worker) {
@@ -440,13 +459,13 @@ async function handleSubmitNote() {
       return;
     }
 
-    if (!shiftDate || !timeIn || !timeOut || !noteText.trim()) {
-      setMessage("Please complete date, time in, time out, and note");
+    if (!noteText.trim()) {
+      setMessage("Please complete the service-note narrative.");
       return;
     }
 
-    if (timeOut <= timeIn) {
-      setMessage("The end time must be later than the start time. Use separate notes when service crosses midnight.");
+    if (!shiftInterval(shiftDate, timeIn, shiftEndDate, timeOut)) {
+      setMessage("Enter valid dates and times. The shift must end after it starts.");
       return;
     }
 
@@ -469,7 +488,7 @@ async function handleSubmitNote() {
       return;
     }
 
-    if (signatureMode === "draw" && (!drawnSignature || sigCanvasRef.current?.isEmpty?.())) {
+    if (signatureMode === "draw" && !drawnSignature) {
       setMessage("Please draw your signature before submitting.");
       return;
     }
@@ -501,6 +520,7 @@ async function handleSubmitNote() {
           participantId: selectedParticipant.id,
           currentNoteId,
           shiftDate,
+          shiftEndDate,
           timeIn,
           timeOut,
           service,
@@ -529,8 +549,7 @@ async function handleSubmitNote() {
       return;
     }
 
-    setCurrentNoteId(null);
-    setHasDraft(false);
+    resetEditorForParticipant(selectedParticipant);
     setDraftParticipantIds((current) => current.filter((id) => id !== selectedParticipant.id));
 
     try {
@@ -576,13 +595,6 @@ async function handleSubmitNote() {
     }
 
     setSaving(false);
-    setNoteText("");
-    setSelectedGoals([]);
-    setGoalDetails({});
-    setPromptLevels({});
-    setSignatureAttested(false);
-    setTimeIn(getCurrentTime());
-    setTimeOut(getCurrentTime());
   }
 
 
@@ -617,6 +629,9 @@ if (selectedParticipant) {
   return (
     <main
       className="dn-note-page"
+      onChangeCapture={(event) => {
+        if (event.target.closest("[data-note-editor]")) setDirty(true);
+      }}
       style={{
         minHeight: "100vh",
         background: "var(--dn-bg)",
@@ -643,6 +658,7 @@ if (selectedParticipant) {
       <p>Person Receiving Services: {selectedParticipant.name}</p>
       <WorkerCorrections participantId={selectedParticipant.id} />
       <WorkerRecentNotes key={selectedParticipant.id} participantId={selectedParticipant.id} />
+      <fieldset className="dn-note-editor" data-note-editor disabled={saving}>
 
       <div
         className="dn-note-fields"
@@ -651,114 +667,15 @@ if (selectedParticipant) {
           gap: 16,
           marginTop: 20,
           maxWidth: 420,
-          background: "#ffffff",
+          background: "var(--dn-legacy-panel, #ffffff)",
           padding: 20,
           borderRadius: 16,
           border: "1px solid var(--dn-border)",
         }}
       >
         <h2 className="dn-note-section-title"><span className="dn-step dn-step-blue" aria-hidden="true">01</span>Shift details</h2>
-        <div>
-          <label
-            style={{
-              display: "block",
-              marginBottom: 6,
-              fontWeight: 600,
-              color: "var(--dn-text)",
-            }}
-          >
-            Shift Date
-          </label>
-          <input
-            type="date"
-            value={shiftDate}
-            onChange={(e) => setShiftDate(e.target.value)}
-            style={{
-              width: "100%",
-              padding: 10,
-              fontSize: 16,
-              boxSizing: "border-box",
-              borderRadius: 10,
-              border: "1px solid var(--dn-border)",
-              background: "var(--dn-blue-pale)",
-            }}
-          />
-        </div>
-
-        <div>
-          <label
-            style={{
-              display: "block",
-              marginBottom: 6,
-              fontWeight: 600,
-              color: "var(--dn-text)",
-            }}
-          >
-            Time In
-          </label>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="time"
-              value={timeIn}
-              onChange={(e) => setTimeIn(e.target.value)}
-              style={{
-                flex: 1,
-                padding: 10,
-                fontSize: 16,
-                boxSizing: "border-box",
-                borderRadius: 10,
-                border: "1px solid var(--dn-border)",
-                background: "var(--dn-blue-pale)",
-              }}
-            />
-
-            <button
-              type="button"
-              onClick={() => setTimeIn(getCurrentTime())}
-              style={{
-                padding: "10px 12px",
-                fontSize: 14,
-                cursor: "pointer",
-                borderRadius: 10,
-                border: "1px solid var(--dn-border)",
-                background: "#ffffff",
-              }}
-            >
-              Now
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label
-            style={{
-              display: "block",
-              marginBottom: 6,
-              fontWeight: 600,
-              color: "var(--dn-text)",
-            }}
-          >
-            Time Out
-          </label>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <input
-              type="time"
-              value={timeOut}
-              onChange={(e) => setTimeOut(e.target.value)}
-              style={{
-                flex: 1,
-                padding: 10,
-                fontSize: 16,
-                boxSizing: "border-box",
-                borderRadius: 10,
-                border: "1px solid var(--dn-border)",
-                background: "var(--dn-blue-pale)",
-              }}
-            />
-          </div>
-        </div>
+        <ShiftDates startDate={shiftDate} endDate={endDateOverride} startTime={timeIn} endTime={timeOut}
+          setStartDate={setShiftDate} setEndDate={setEndDateOverride} setStartTime={setTimeIn} setEndTime={setTimeOut} onEdit={() => setDirty(true)} />
 
         <div>
           <label
@@ -850,7 +767,7 @@ onChange={(e) => {
             padding: 16,
             border: "1px solid var(--dn-border)",
             borderRadius: 12,
-            background: "#fff",
+            background: "var(--dn-legacy-panel, #fff)",
           }}
         >
           <h2 className="dn-note-section-title"><span className="dn-step dn-step-pink" aria-hidden="true">02</span>Goals worked on</h2>
@@ -888,7 +805,7 @@ onChange={(e) => {
                             padding: 10,
                             border: isChecked ? "2px solid var(--dn-pink)" : "1px solid var(--dn-border)",
                             borderRadius: 10,
-                            background: isChecked ? "var(--dn-yellow-pale)" : "#ffffff",
+                            background: isChecked ? "var(--dn-yellow-pale)" : "var(--dn-legacy-panel, #ffffff)",
                           }}
                         >
                           <label
@@ -1014,7 +931,7 @@ onChange={(e) => {
               marginBottom: 8,
             }}
           >
-            What activities were completed today, what support was given, and what progress was made?
+            What activities were completed, what support was given, and what progress was made?
           </label>
 
           <textarea
@@ -1030,7 +947,7 @@ onChange={(e) => {
               border: "1px solid var(--dn-border)",
               fontSize: 16,
               resize: "vertical",
-              background: "#fff",
+              background: "var(--dn-legacy-panel, #fff)",
               boxSizing: "border-box",
             }}
           />
@@ -1173,11 +1090,13 @@ onChange={(e) => {
                   style: { width: "100%", height: "150px" },
                 }}
                 onEnd={() => {
+                  setDirty(true);
                   const dataURL = sigCanvasRef.current.toDataURL();
                   setDrawnSignature(dataURL);
                 }}
               />
             </div>
+            {drawnSignature && <p className="dn-draft-hint">A drawn signature is attached. Draw again to replace it.</p>}
           </div>
         )}
         <label
@@ -1189,7 +1108,7 @@ onChange={(e) => {
             padding: 12,
             border: "1px solid var(--dn-border)",
             borderRadius: 10,
-            background: "#fff",
+            background: "var(--dn-legacy-panel, #fff)",
             lineHeight: 1.4,
           }}
         >
@@ -1205,7 +1124,8 @@ onChange={(e) => {
         </label>
       </div>
 
-      <div style={{ marginTop: 15, display: "flex", gap: 10, flexWrap: "wrap" }}>
+      </fieldset>
+      <div className="dn-note-actions">
         <button
           onClick={handleSubmitNote}
           disabled={saving}
@@ -1232,16 +1152,38 @@ onChange={(e) => {
             cursor: "pointer",
             borderRadius: 10,
             border: "1px solid var(--dn-border)",
-            background: "#ffffff",
+            background: "var(--dn-legacy-panel, #ffffff)",
             color: "var(--dn-primary)",
             fontWeight: 600,
           }}
         >
-          {saving ? "Saving..." : "Save Draft"}
+          Save Note
         </button>
 
         <button
           onClick={handleDeleteDraft}
+          disabled={saving || (!dirty && !currentNoteId)}
+          style={{
+            padding: "10px 18px",
+            fontSize: 16,
+            cursor: "pointer",
+            borderRadius: 10,
+            border: "1px solid var(--dn-border)",
+            background: "var(--dn-legacy-panel, #ffffff)",
+            color: "var(--dn-primary)",
+            fontWeight: 600,
+          }}
+        >
+          Clear Note
+        </button>
+
+<button
+  onClick={() => {
+    if (dirty && !window.confirm("Leave this note? Changes since your last save will be lost.")) return;
+    setDirty(false);
+    setSelectedParticipant(null);
+    setMessage("");
+  }}
           disabled={saving}
           style={{
             padding: "10px 18px",
@@ -1249,26 +1191,7 @@ onChange={(e) => {
             cursor: "pointer",
             borderRadius: 10,
             border: "1px solid var(--dn-border)",
-            background: "#ffffff",
-            color: "var(--dn-primary)",
-            fontWeight: 600,
-          }}
-        >
-          Delete Draft
-        </button>
-
-<button
-  onClick={() => {
-    setSelectedParticipant(null);
-    setMessage("");
-  }}
-          style={{
-            padding: "10px 18px",
-            fontSize: 16,
-            cursor: "pointer",
-            borderRadius: 10,
-            border: "1px solid var(--dn-border)",
-            background: "#ffffff",
+            background: "var(--dn-legacy-panel, #ffffff)",
             color: "var(--dn-primary)",
             fontWeight: 600,
           }}
@@ -1276,6 +1199,9 @@ onChange={(e) => {
           Choose Another Person
         </button>
       </div>
+
+      <p className="dn-draft-hint">Save Note keeps an unfinished draft. Changes aren’t saved automatically.</p>
+      <p role="status" style={{ marginTop: 10 }}>{message}</p>
 
       <details style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
         <summary style={{ cursor: "pointer", fontWeight: 800 }}>Outcome Information</summary>
@@ -1288,14 +1214,12 @@ onChange={(e) => {
         )) : <p>No outcomes are set.</p>}
       </details>
 
-      <p style={{ marginTop: 10 }}>{message}</p>
-
       <div
         style={{
           width: "100%",
           maxWidth: 500,
           fontSize: 12,
-          color: "#666",
+          color: "var(--dn-muted, #666)",
           marginTop: 40,
           paddingTop: 20,
           borderTop: "1px solid #e5e5e5",
@@ -1338,6 +1262,7 @@ async function handleSaveDraft() {
     worker_id: worker.id,
     participant_id: participantId,
     shift_date: shiftDate,
+    shift_end_date: shiftEndDate,
     time_in: timeIn,
     time_out: timeOut,
     location,
@@ -1361,10 +1286,10 @@ async function handleSaveDraft() {
       .select()
       .maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       console.error("Create draft error:", error);
       setSaving(false);
-      setMessage(error.message);
+      setMessage("Could not save the draft. Your changes are still here.");
       return;
     }
 
@@ -1373,63 +1298,60 @@ async function handleSaveDraft() {
     setHasDraft(true);
     setDraftParticipantIds((current) => [...new Set([...current, participantId])]);
   } else {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("service_notes")
       .update(payload)
       .eq("id", noteId)
       .eq("worker_id", worker.id)
-      .eq("participant_id", participantId);
+      .eq("participant_id", participantId)
+      .eq("status", "draft")
+      .select("id").maybeSingle();
 
-    if (error) {
+    if (error || !data) {
       console.error("Update draft error:", error);
       setSaving(false);
-      setMessage(error.message);
+      setMessage("Could not update the draft. Your changes are still here.");
       return;
     }
     setDraftParticipantIds((current) => [...new Set([...current, participantId])]);
   }
 
   setSaving(false);
+  setDirty(false);
   setMessage("Draft saved.");
 }
 
   async function handleDeleteDraft() {
+    if (!dirty && !currentNoteId) return;
+    if (!window.confirm("Clear this note? This removes any saved draft for this note and can’t be undone.")) return;
     if (!currentNoteId) {
-      setMessage("No draft to delete.");
+      resetEditorForParticipant(selectedParticipant);
+      setMessage("Note cleared.");
       return;
     }
 
     setSaving(true);
     setMessage("");
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("service_notes")
       .delete()
       .eq("id", currentNoteId)
       .eq("worker_id", worker.id)
-      .eq("participant_id", selectedParticipant?.id);
+      .eq("participant_id", selectedParticipant?.id)
+      .eq("status", "draft")
+      .select("id").maybeSingle();
 
     setSaving(false);
 
-    if (error) {
+    if (error || !data) {
       setMessage("Could not delete draft.");
       return;
     }
 
-    setCurrentNoteId(null);
-    setHasDraft(false);
     setDraftParticipantIds((current) => current.filter((id) => id !== selectedParticipant?.id));
-    setSelectedParticipant(null);
-    setNoteText("");
-    setShiftDate(getTodayDate());
-    setTimeIn(getCurrentTime());
-    setTimeOut(getCurrentTime());
-    setLocation("community");
-    setService("");
-    setSelectedGoals([]);
-    setTypedSignature("");
-    setDrawnSignature("");
-    setMessage("Draft deleted.");
+    resetEditorForParticipant(selectedParticipant);
+    setMessage("Note cleared.");
   }
 
   if (worker && loadingDraft) {
@@ -1464,12 +1386,12 @@ async function handleSaveDraft() {
                   cursor: "pointer",
                   borderRadius: 10,
                   border: "1px solid var(--dn-border)",
-                  background: draftParticipantIds.includes(participant.id) ? "var(--dn-yellow-pale)" : "#ffffff",
+                  background: draftParticipantIds.includes(participant.id) ? "var(--dn-yellow-pale)" : "var(--dn-legacy-panel, #ffffff)",
                 }}
               >
                 <strong>{participant.name}</strong>
                 {draftParticipantIds.includes(participant.id) && (
-                  <span style={{ display: "block", marginTop: 4, color: "#92400e", fontSize: 14 }}>
+                  <span style={{ display: "block", marginTop: 4, color: "var(--dn-alert, #92400e)", fontSize: 14 }}>
                     Saved draft — tap to resume
                   </span>
                 )}

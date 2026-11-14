@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
+import ShiftDates from "../../components/ShiftDates";
+import { easternShiftDefaults } from "../../../lib/shift-dates.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
@@ -66,14 +68,11 @@ function getParticipantPromptLevels(participant) {
 }
 
 function getTodayDate() {
-  return new Date().toISOString().split("T")[0];
+  return easternShiftDefaults().date;
 }
 
 function getCurrentTime() {
-  const now = new Date();
-  const hours = String(now.getHours()).padStart(2, "0");
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  return `${hours}:${minutes}`;
+  return easternShiftDefaults().time;
 }
 
 export default function NoteTemplatePreviewPage() {
@@ -85,6 +84,7 @@ export default function NoteTemplatePreviewPage() {
   const [participant, setParticipant] = useState(null);
   const [viewerRole, setViewerRole] = useState("");
   const [shiftDate, setShiftDate] = useState(getTodayDate());
+  const [endDateOverride, setEndDateOverride] = useState(null);
   const [timeIn, setTimeIn] = useState(getCurrentTime());
   const [timeOut, setTimeOut] = useState(getCurrentTime());
   const [location, setLocation] = useState("community");
@@ -162,7 +162,7 @@ export default function NoteTemplatePreviewPage() {
     padding: 18,
     border: "1px solid var(--dn-border)",
     borderRadius: 16,
-    background: "#ffffff",
+    background: "var(--dn-legacy-panel, #ffffff)",
   };
 
   const inputStyle = {
@@ -177,8 +177,8 @@ export default function NoteTemplatePreviewPage() {
 
   const disabledInputStyle = {
     ...inputStyle,
-    color: "#64748b",
-    background: "#f8fafc",
+    color: "var(--dn-muted, #64748b)",
+    background: "var(--dn-legacy-panel, #f8fafc)",
   };
 
   const requestedReturnPath = searchParams.get("returnTo") || "";
@@ -216,7 +216,7 @@ export default function NoteTemplatePreviewPage() {
       <button
         type="button"
         onClick={() => { window.location.href = returnPath; }}
-        style={{ position: "sticky", top: 10, zIndex: 20, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid var(--dn-border)", background: "#ffffff", color: "#1f2937", fontWeight: 700, boxShadow: "0 4px 14px rgba(31,41,55,.14)" }}
+        style={{ position: "sticky", top: 10, zIndex: 20, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid var(--dn-border)", background: "var(--dn-legacy-panel, #ffffff)", color: "#1f2937", fontWeight: 700, boxShadow: "0 4px 14px rgba(31,41,55,.14)" }}
       >
         ← {returnLabel}
       </button>
@@ -225,9 +225,9 @@ export default function NoteTemplatePreviewPage() {
           marginBottom: 16,
           padding: 14,
           borderRadius: 14,
-          background: "#fffbeb",
+          background: "var(--dn-warm-panel, #fffbeb)",
           border: "1px solid #f59e0b",
-          color: "#92400e",
+          color: "var(--dn-alert, #92400e)",
           fontWeight: 700,
         }}
       >
@@ -246,14 +246,14 @@ export default function NoteTemplatePreviewPage() {
         }}
       >
         <h1 style={{ margin: 0 }}>Service Note</h1>
-        <p style={{ marginBottom: 0, color: "#4b5563" }}>
+        <p style={{ marginBottom: 0, color: "var(--dn-muted, #4b5563)" }}>
           {viewerRole === "admin" ? "Admin preview" : "CLE preview"}
         </p>
       </div>
 
       {message ? (
         <section style={cardStyle}>
-          <p style={{ color: "#b45309" }}>{message}</p>
+          <p style={{ color: "var(--dn-alert, #b45309)" }}>{message}</p>
         </section>
       ) : null}
 
@@ -264,41 +264,8 @@ export default function NoteTemplatePreviewPage() {
 
           <div className="dn-note-fields" style={{ display: "grid", gap: 16, marginTop: 20, ...cardStyle }}>
             <h2 className="dn-note-section-title"><span className="dn-step dn-step-blue" aria-hidden="true">01</span>Shift details</h2>
-            <div>
-              <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-                Shift Date
-              </label>
-              <input
-                type="date"
-                value={shiftDate}
-                onChange={(e) => setShiftDate(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-                Time In
-              </label>
-              <input
-                type="time"
-                value={timeIn}
-                onChange={(e) => setTimeIn(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
-                Time Out
-              </label>
-              <input
-                type="time"
-                value={timeOut}
-                onChange={(e) => setTimeOut(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
+            <ShiftDates startDate={shiftDate} endDate={endDateOverride} startTime={timeIn} endTime={timeOut}
+              setStartDate={setShiftDate} setEndDate={setEndDateOverride} setStartTime={setTimeIn} setEndTime={setTimeOut} />
 
             <div>
               <label style={{ display: "block", marginBottom: 6, fontWeight: 600 }}>
@@ -356,7 +323,7 @@ export default function NoteTemplatePreviewPage() {
                 padding: 16,
                 border: "1px solid var(--dn-border)",
                 borderRadius: 12,
-                background: "#fff",
+                background: "var(--dn-legacy-panel, #fff)",
               }}
             >
               <h2 className="dn-note-section-title"><span className="dn-step dn-step-pink" aria-hidden="true">02</span>Goals worked on</h2>
@@ -390,7 +357,7 @@ export default function NoteTemplatePreviewPage() {
                                 padding: 10,
                                 border: "1px solid var(--dn-border)",
                                 borderRadius: 10,
-                                background: "#fafafa",
+                                background: "var(--dn-legacy-panel, #fafafa)",
                               }}
                             >
                               <label
@@ -508,7 +475,7 @@ export default function NoteTemplatePreviewPage() {
                   border: "1px solid var(--dn-border)",
                   fontSize: 16,
                   resize: "vertical",
-                  background: "#f8fafc",
+                  background: "var(--dn-legacy-panel, #f8fafc)",
                   boxSizing: "border-box",
                 }}
               />
@@ -592,10 +559,10 @@ export default function NoteTemplatePreviewPage() {
                     borderRadius: "6px",
                     width: "100%",
                     height: 150,
-                    background: "#f8fafc",
+                    background: "var(--dn-legacy-panel, #f8fafc)",
                     display: "grid",
                     placeItems: "center",
-                    color: "#64748b",
+                    color: "var(--dn-muted, #64748b)",
                   }}
                 >
                   Signature drawing area
@@ -611,7 +578,7 @@ export default function NoteTemplatePreviewPage() {
                 padding: 12,
                 border: "1px solid var(--dn-border)",
                 borderRadius: 10,
-                background: "#fff",
+                background: "var(--dn-legacy-panel, #fff)",
                 lineHeight: 1.4,
               }}
             >

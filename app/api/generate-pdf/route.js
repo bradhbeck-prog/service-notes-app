@@ -49,7 +49,7 @@ async function loadAuthorizedNote(request, noteId) {
   if (userError || !user) return { response: responseText("Your login session is invalid or expired.", 401) };
 
   const { data: note, error: noteError } = await admin.from("service_notes").select(`
-    id, participant_id, worker_id, shift_date, date_completed, signed_at, time_in, time_out,
+    id, participant_id, worker_id, shift_date, shift_end_date, date_completed, signed_at, time_in, time_out,
     service, location, narrative, goals, goal_details, prompt_levels, status,
     worker_signature_mode, worker_typed_signature, worker_drawn_signature, worker_signature_font,
     workers(id, name, auth_user_id),
@@ -114,6 +114,7 @@ export async function POST(req) {
       participantName: participant.name || "Participant",
       cleEmail: requestBody.sendEmail === true && authorized.workerOwnsNote ? participant.cle_email : null,
       shiftDate: note.shift_date,
+      shiftEndDate: note.shift_end_date || note.shift_date,
       timeIn: note.time_in,
       timeOut: note.time_out,
       service: note.service,
@@ -137,6 +138,7 @@ export async function POST(req) {
       participantName,
       cleEmail,
       shiftDate,
+      shiftEndDate,
       timeIn,
       timeOut,
       service,
@@ -164,14 +166,10 @@ export async function POST(req) {
     }
 
     function formatTime(timeStr) {
-      const [h, m] = timeStr.split(":");
-      const d = new Date();
-      d.setHours(h);
-      d.setMinutes(m);
-      return d.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-      });
+      const parts = /^(\d{2}):(\d{2})/.exec(timeStr || "");
+      if (!parts) return "Not set";
+      const hour = Number(parts[1]);
+      return `${hour % 12 || 12}:${parts[2]} ${hour < 12 ? "AM" : "PM"}`;
     }
 
     function makeSafeFilenamePart(text) {
@@ -453,16 +451,16 @@ export async function POST(req) {
     });
 
     y -= 20;
-    page.drawText(`Date of Service: ${formattedDate}`, { x: LEFT, y, size: 12, font });
+    page.drawText(`Date of Service: ${formattedDate}${shiftEndDate !== shiftDate ? ` - ${formatDate(shiftEndDate)}` : ""}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
     page.drawText(`Date Completed (system recorded): ${formattedDateCompleted}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
-    page.drawText(`Time In: ${formattedTimeIn}`, { x: LEFT, y, size: 12, font });
+    page.drawText(`Shift Start: ${formattedDate} at ${formattedTimeIn}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
-    page.drawText(`Time Out: ${formattedTimeOut}`, { x: LEFT, y, size: 12, font });
+    page.drawText(`Shift End: ${formatDate(shiftEndDate)} at ${formattedTimeOut}`, { x: LEFT, y, size: 12, font });
 
     y -= 20;
     page.drawText(`Service: ${service}`, {

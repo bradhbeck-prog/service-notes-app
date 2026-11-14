@@ -630,7 +630,7 @@ export default function ClePortalPage() {
     padding: 18,
     border: "1px solid var(--dn-border)",
     borderRadius: 18,
-    background: "#ffffff",
+    background: "var(--dn-legacy-panel, #ffffff)",
     boxShadow: "0 8px 24px rgba(31, 41, 55, 0.06)",
   };
   const statCardStyle = {
@@ -653,7 +653,7 @@ export default function ClePortalPage() {
     padding: "8px 10px",
     borderRadius: 10,
     border: "1px solid #cbd5e1",
-    background: "#ffffff",
+    background: "var(--dn-legacy-panel, #ffffff)",
     color: "#1f2937",
     cursor: "pointer",
   };
@@ -672,7 +672,7 @@ export default function ClePortalPage() {
     marginTop: 6,
     borderRadius: 9,
     border: "1px solid var(--dn-border)",
-    background: "#ffffff",
+    background: "var(--dn-legacy-panel, #ffffff)",
     fontSize: 16,
     boxSizing: "border-box",
   };
@@ -690,7 +690,7 @@ export default function ClePortalPage() {
     padding: "3px 7px",
     borderRadius: 999,
     background: "var(--dn-pink-pale)",
-    color: "#8f3655",
+    color: "var(--dn-error, #8f3655)",
     fontSize: 12,
     fontWeight: 700,
   };
@@ -727,7 +727,7 @@ export default function ClePortalPage() {
         </button>
       </div>
 
-      {message ? <p style={{ color: message.includes("saved") ? "#059669" : "#b45309" }}>{message}</p> : null}
+      {message ? <p style={{ color: message.includes("saved") ? "var(--dn-success, #059669)" : "var(--dn-alert, #b45309)" }}>{message}</p> : null}
 
       {!participant ? (
         <section style={cardStyle}>
@@ -737,7 +737,7 @@ export default function ClePortalPage() {
         <div className="dn-portal-sections" style={{ display: "flex", flexDirection: "column" }}>
           <details open style={{ ...cardStyle, order: 1 }}>
             <summary style={{ cursor: "pointer", fontSize: 26, fontWeight: 800, marginBottom: 10 }}>{participant.name}</summary>
-            <p style={{ marginTop: 0, color: "#4b5563" }}>
+            <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
             <button
@@ -750,15 +750,15 @@ export default function ClePortalPage() {
             <div className="dn-portal-stats" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <div style={{ ...statCardStyle, borderTop: "4px solid var(--dn-blue)" }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-blue)" }}>{notes.length}</div>
-                <div style={{ color: "#4b5563", fontSize: 14 }}>Submitted notes</div>
+                <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>Submitted notes</div>
               </div>
               <div style={{ ...statCardStyle, background: "var(--dn-pink-pale)", borderTop: "4px solid var(--dn-pink)" }}>
-                <div style={{ fontSize: 26, fontWeight: 800, color: "#a43f60" }}>{thisMonthNotes.length}</div>
-                <div style={{ color: "#4b5563", fontSize: 14 }}>This month</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-error, #a43f60)" }}>{thisMonthNotes.length}</div>
+                <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>This month</div>
               </div>
               <div style={{ ...statCardStyle, background: "var(--dn-yellow-pale)", borderTop: "4px solid var(--dn-yellow)" }}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{assignedWorkers.length}</div>
-                <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
+                <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>Assigned workers</div>
               </div>
             </div>
           </details>
@@ -767,7 +767,7 @@ export default function ClePortalPage() {
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Goals</summary>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div>
-                <p style={{ color: "#5d6878", margin: "5px 0 0" }}>
+                <p style={{ color: "var(--dn-muted, #5d6878)", margin: "5px 0 0" }}>
                   These goals control what workers see on the service note. Goals are grouped by category.
                 </p>
               </div>
@@ -786,7 +786,7 @@ export default function ClePortalPage() {
             <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
               {groupedGoals.map((group) => (
                 <section className="dn-goal-category" key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "var(--dn-warm-panel, #fff7cf)", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button
                       type="button"
@@ -799,7 +799,7 @@ export default function ClePortalPage() {
                     >
                       Rename
                     </button>
-                    {group.category !== "Uncategorized" && <button type="button" onClick={() => removeCategory(group)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove Category</button>}</div>
+                    {group.category !== "Uncategorized" && <button type="button" onClick={() => removeCategory(group)} style={{ ...smallButtonStyle, color: "var(--dn-error, #9b2c2c)" }}>Remove Category</button>}</div>
                   </div>
 
                   {renamingCategory === group.category && (
@@ -847,7 +847,7 @@ export default function ClePortalPage() {
                             <button type="button" aria-label={`Move ${goal.goal_label} up`} disabled={index === 0} onClick={() => moveGoal(group.category, goal.id, -1)} style={{ ...smallButtonStyle, opacity: index === 0 ? 0.4 : 1 }}>↑</button>
                             <button type="button" aria-label={`Move ${goal.goal_label} down`} disabled={index === group.goals.length - 1} onClick={() => moveGoal(group.category, goal.id, 1)} style={{ ...smallButtonStyle, opacity: index === group.goals.length - 1 ? 0.4 : 1 }}>↓</button>
                             <button type="button" onClick={() => editGoal(goal)} style={smallButtonStyle}>Edit</button>
-                            <button type="button" onClick={() => archiveGoal(goal)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove</button>
+                            <button type="button" onClick={() => archiveGoal(goal)} style={{ ...smallButtonStyle, color: "var(--dn-error, #9b2c2c)" }}>Remove</button>
                           </div>
                         </div>
                       </article>
@@ -856,7 +856,7 @@ export default function ClePortalPage() {
                 </section>
               ))}
               {!groupedGoals.length && (
-                <p style={{ padding: 16, borderRadius: 9, background: "var(--dn-blue-pale)", color: "#5d6878" }}>
+                <p style={{ padding: 16, borderRadius: 9, background: "var(--dn-blue-pale)", color: "var(--dn-muted, #5d6878)" }}>
                   No active goals yet. Use Add Goal to begin the service note template.
                 </p>
               )}
@@ -870,7 +870,7 @@ export default function ClePortalPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
                 <label style={{ fontWeight: 800, minWidth: 0 }}>
                   Category
-                  <span style={{ display: "block", color: "#5d6878", fontSize: 14, lineHeight: 1.4, fontWeight: 400, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                  <span style={{ display: "block", color: "var(--dn-muted, #5d6878)", fontSize: 14, lineHeight: 1.4, fontWeight: 400, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                     Choose an existing category from the suggestions, or type a new category.
                   </span>
                   <input
@@ -895,7 +895,7 @@ export default function ClePortalPage() {
               {activeParticipantServices.length > 0 && (
                 <fieldset style={{ margin: "0 0 14px", padding: 14, borderRadius: 9, border: "1px solid var(--dn-border)" }}>
                   <legend style={{ fontWeight: 800 }}>Services for this goal</legend>
-                  <p style={{ color: "#5d6878", marginTop: 0 }}>
+                  <p style={{ color: "var(--dn-muted, #5d6878)", marginTop: 0 }}>
                     All services are selected by default. Uncheck any service where this goal should not appear.
                   </p>
                   <div style={{ display: "grid", gap: 8 }}>
@@ -915,7 +915,7 @@ export default function ClePortalPage() {
                       </label>
                     ))}
                   </div>
-                  {!goalDraft.serviceIds.length && <p style={{ color: "#9b2c2c", fontWeight: 700, marginBottom: 0 }}>Choose at least one service.</p>}
+                  {!goalDraft.serviceIds.length && <p style={{ color: "var(--dn-error, #9b2c2c)", fontWeight: 700, marginBottom: 0 }}>Choose at least one service.</p>}
                 </fieldset>
               )}
 
@@ -949,7 +949,7 @@ export default function ClePortalPage() {
 
           <details style={{ ...cardStyle, order: 5 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Prompt Levels</summary>
-            <p style={{ color: "#5d6878", marginTop: 0 }}>
+            <p style={{ color: "var(--dn-muted, #5d6878)", marginTop: 0 }}>
               Choose which prompt levels workers can select for {participant.name}. They appear in this hierarchy whenever a goal requires a prompt level.
             </p>
             <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
@@ -963,7 +963,7 @@ export default function ClePortalPage() {
                     padding: "10px 12px",
                     borderRadius: 9,
                     border: `1px solid ${selectedPromptLevels.includes(level) ? "var(--dn-pink)" : "var(--dn-border)"}`,
-                    background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "white",
+                    background: selectedPromptLevels.includes(level) ? "var(--dn-pink-pale)" : "var(--dn-legacy-panel, white)",
                     cursor: "pointer",
                   }}
                 >
@@ -983,15 +983,15 @@ export default function ClePortalPage() {
             >
               {savingPromptLevels ? "Saving..." : "Save Prompt Levels"}
             </button>
-            {!selectedPromptLevels.length && <p style={{ color: "#9b2c2c", fontWeight: 700 }}>At least one prompt level is required.</p>}
+            {!selectedPromptLevels.length && <p style={{ color: "var(--dn-error, #9b2c2c)", fontWeight: 700 }}>At least one prompt level is required.</p>}
           </details>
 
           <details style={{ ...cardStyle, order: 7 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes</summary>
-            <p style={{ color: "#5d6878" }}>A participant may have more than one outcome.</p>
+            <p style={{ color: "var(--dn-muted, #5d6878)" }}>A participant may have more than one outcome.</p>
             <div style={{ display: "grid", gap: 10 }}>
-              {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button type="button" onClick={() => editOutcome(outcome)} style={smallButtonStyle}>Edit</button><button type="button" onClick={() => deleteOutcome(outcome)} style={{ ...smallButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
-              {!participant.participant_outcomes?.length && <p style={{ color: "#5d6878" }}>No outcomes have been added.</p>}
+              {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "var(--dn-muted, #5d6878)" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button type="button" onClick={() => editOutcome(outcome)} style={smallButtonStyle}>Edit</button><button type="button" onClick={() => deleteOutcome(outcome)} style={{ ...smallButtonStyle, color: "var(--dn-error, #9b2c2c)" }}>Remove</button></div></article>)}
+              {!participant.participant_outcomes?.length && <p style={{ color: "var(--dn-muted, #5d6878)" }}>No outcomes have been added.</p>}
             </div>
             <form onSubmit={saveOutcome} style={{ marginTop: 16, padding: 16, borderRadius: 11, background: "var(--dn-pink-pale)" }}><h3 style={{ marginTop: 0 }}>{editingOutcomeId ? "Edit Outcome" : "Add Outcome"}</h3><label style={{ display: "block", fontWeight: 800 }}>Outcome phrase<input value={outcomeDraft.phrase} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, phrase: e.target.value })} style={inputStyle} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Outcome statement<textarea value={outcomeDraft.statement} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, statement: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><label style={{ display: "block", fontWeight: 800, marginTop: 12 }}>Action plan<textarea value={outcomeDraft.actionPlan} onChange={(e) => setOutcomeDraft({ ...outcomeDraft, actionPlan: e.target.value })} rows={3} style={{ ...inputStyle, resize: "vertical" }} /></label><div style={{ display: "flex", gap: 8, marginTop: 12 }}><button disabled={savingOutcome} style={primaryButtonStyle}>{savingOutcome ? "Saving..." : editingOutcomeId ? "Save Changes" : "Add Outcome"}</button>{editingOutcomeId && <button type="button" onClick={clearOutcome} style={secondaryButtonStyle}>Cancel</button>}</div></form>
           </details>
@@ -999,7 +999,7 @@ export default function ClePortalPage() {
           <details style={{ ...cardStyle, order: 6 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 8 }}>Assigned Workers</summary>
             <RecentNoteSettings participantId={participant.id} />
-            <p style={{ marginTop: 0, color: "#4b5563" }}>
+            <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)" }}>
               These workers can currently open notes for {participant.name}. Removing access here only removes this participant assignment; it does not delete the worker or past notes.
             </p>
             {assignedWorkers.length === 0 ? (
@@ -1023,7 +1023,7 @@ export default function ClePortalPage() {
                   >
                     <div>
                       <strong>{worker.name}</strong>
-                      <div style={{ color: "#4b5563", fontSize: 14 }}>
+                      <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                         {worker.email ? `${worker.email} · ` : ""}Last submitted note: {formatDate(worker.last_note_date)}
                       </div>
                     </div>
@@ -1034,7 +1034,7 @@ export default function ClePortalPage() {
                       style={{
                         ...secondaryButtonStyle,
                         borderColor: "#fecaca",
-                        color: "#991b1b",
+                        color: "var(--dn-error, #991b1b)",
                       }}
                     >
                       {removingWorkerId === worker.id ? "Removing..." : "Remove Access"}
@@ -1043,14 +1043,14 @@ export default function ClePortalPage() {
                 ))}
               </div>
             )}
-            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", color: "#92400e" }}>
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "var(--dn-warm-panel, #fffbeb)", color: "var(--dn-alert, #92400e)" }}>
               Need to add a worker? Email Bradley at bradley@supportsbroker.com for now.
             </div>
           </details>
 
           <details style={{ ...cardStyle, order: 3 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 10 }}>Note Delivery Preferences</summary>
-            <p style={{ color: "#4b5563" }}>
+            <p style={{ color: "var(--dn-muted, #4b5563)" }}>
               Choose one or more ways you would like to receive service notes.
             </p>
             <div style={{ display: "grid", gap: 8 }}>
@@ -1064,7 +1064,7 @@ export default function ClePortalPage() {
                     padding: 12,
                     border: deliveryPreferences.includes(option.value) ? "2px solid var(--dn-primary)" : "1px solid #d9e7e4",
                     borderRadius: 12,
-                    background: deliveryPreferences.includes(option.value) ? "var(--dn-pink-pale)" : "#ffffff",
+                    background: deliveryPreferences.includes(option.value) ? "var(--dn-pink-pale)" : "var(--dn-legacy-panel, #ffffff)",
                     cursor: "pointer",
                   }}
                 >
@@ -1092,7 +1092,7 @@ export default function ClePortalPage() {
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800, marginBottom: 12 }}>Submitted Service Notes</summary>
             <div className="dn-archive" style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
               <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
-              <p style={{ color: "#4b5563", marginTop: 0 }}>
+              <p style={{ color: "var(--dn-muted, #4b5563)", marginTop: 0 }}>
                 Download one combined PDF for a calendar month. Each service note starts on its own page.
               </p>
               {archiveMonthOptions.length === 0 ? (
@@ -1122,7 +1122,7 @@ export default function ClePortalPage() {
                   <summary style={{ cursor: "pointer", fontWeight: 700 }}>
                     Filter notes
                   </summary>
-                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520, padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520, padding: 12, borderRadius: 12, background: "var(--dn-legacy-panel, #f8fafc)", border: "1px solid #e2e8f0" }}>
                     <label>
                       Date
                       <input
@@ -1168,7 +1168,7 @@ export default function ClePortalPage() {
                   </div>
                 </details>
 
-                <p style={{ marginTop: 0, color: "#4b5563", fontSize: 14 }}>
+                <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                   Showing {filteredNotes.length} of {notes.length} notes. Scroll inside the box below to view more.
                 </p>
 
@@ -1196,14 +1196,14 @@ export default function ClePortalPage() {
                           padding: 12,
                           border: "1px solid #d9e7e4",
                           borderRadius: 12,
-                          background: "#ffffff",
+                          background: "var(--dn-legacy-panel, #ffffff)",
                           display: "grid",
                           gap: 6,
                         }}
                       >
                         <strong>{note.title}</strong>
                         <CleNoteCorrections noteId={note.id} />
-                        <div style={{ color: "#4b5563", fontSize: 14 }}>
+                        <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                           Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

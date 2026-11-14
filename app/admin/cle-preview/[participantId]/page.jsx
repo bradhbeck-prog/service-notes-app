@@ -211,21 +211,21 @@ export default function AdminClePreviewPage() {
     padding: 18,
     border: "1px solid #d9e7e4",
     borderRadius: 18,
-    background: "#ffffff",
+    background: "var(--dn-legacy-panel, #ffffff)",
     boxShadow: "0 8px 24px rgba(31, 41, 55, 0.06)",
   };
   const statCardStyle = {
     padding: 14,
     border: "1px solid #d9e7e4",
     borderRadius: 14,
-    background: "#f8fffd",
+    background: "var(--dn-legacy-panel, #f8fffd)",
   };
   const disabledButtonStyle = {
     padding: "7px 10px",
     borderRadius: 8,
     border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#64748b",
+    background: "var(--dn-legacy-panel, #ffffff)",
+    color: "var(--dn-muted, #64748b)",
     fontWeight: 700,
     opacity: 0.7,
   };
@@ -237,7 +237,7 @@ export default function AdminClePreviewPage() {
     marginTop: 6,
     borderRadius: 9,
     border: "1px solid var(--dn-border)",
-    background: "#ffffff",
+    background: "var(--dn-legacy-panel, #ffffff)",
     fontSize: 16,
     boxSizing: "border-box",
   };
@@ -256,7 +256,7 @@ export default function AdminClePreviewPage() {
       <button
         type="button"
         onClick={() => { window.location.href = "/admin"; }}
-        style={{ position: "sticky", top: 10, zIndex: 20, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid #cbd5e1", background: "#ffffff", color: "#1f2937", fontWeight: 700, boxShadow: "0 4px 14px rgba(31,41,55,.14)" }}
+        style={{ position: "sticky", top: 10, zIndex: 20, padding: "10px 14px", marginBottom: 14, borderRadius: 10, border: "1px solid #cbd5e1", background: "var(--dn-legacy-panel, #ffffff)", color: "#1f2937", fontWeight: 700, boxShadow: "0 4px 14px rgba(31,41,55,.14)" }}
       >
         ← Back to Admin
       </button>
@@ -264,9 +264,9 @@ export default function AdminClePreviewPage() {
         style={{
           padding: 14,
           borderRadius: 16,
-          background: "#fffbeb",
+          background: "var(--dn-warm-panel, #fffbeb)",
           border: "1px solid #f59e0b",
-          color: "#92400e",
+          color: "var(--dn-alert, #92400e)",
           fontWeight: 700,
           marginBottom: 16,
         }}
@@ -292,7 +292,7 @@ export default function AdminClePreviewPage() {
         </div>
       </div>
 
-      {message ? <p style={{ color: "#b45309" }}>{message}</p> : null}
+      {message ? <p style={{ color: "var(--dn-alert, #b45309)" }}>{message}</p> : null}
 
       {hiddenDraftCount > 0 ? (
         <div
@@ -300,9 +300,9 @@ export default function AdminClePreviewPage() {
             marginTop: 16,
             padding: 14,
             borderRadius: 14,
-            background: "#fff7ed",
+            background: "var(--dn-warm-panel, #fff7ed)",
             border: "1px solid #fb923c",
-            color: "#9a3412",
+            color: "var(--dn-alert, #9a3412)",
           }}
         >
           <strong>Admin note:</strong> {hiddenDraftCount} draft note{hiddenDraftCount === 1 ? "" : "s"} with text are hidden from the CLE portal. These may be old notes that need review/recovery.
@@ -317,7 +317,7 @@ export default function AdminClePreviewPage() {
         <div className="dn-portal-sections" style={{ display: "flex", flexDirection: "column" }}>
           <details open style={{ ...cardStyle, order: 1 }}>
             <summary style={{ cursor: "pointer", fontSize: 26, fontWeight: 800, marginBottom: 10 }}>{participant.name}</summary>
-            <p style={{ marginTop: 0, color: "#4b5563" }}>
+            <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)" }}>
               CLE email: {participant.cle_email || "Not set"}
             </p>
             <button
@@ -330,15 +330,15 @@ export default function AdminClePreviewPage() {
             <div className="dn-portal-stats" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <div style={statCardStyle}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{notes.length}</div>
-                <div style={{ color: "#4b5563", fontSize: 14 }}>Submitted notes</div>
+                <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>Submitted notes</div>
               </div>
               <div style={statCardStyle}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{thisMonthNotes.length}</div>
-                <div style={{ color: "#4b5563", fontSize: 14 }}>This month</div>
+                <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>This month</div>
               </div>
               <div style={statCardStyle}>
                 <div style={{ fontSize: 26, fontWeight: 800, color: "var(--dn-primary)" }}>{assignedWorkers.length}</div>
-                <div style={{ color: "#4b5563", fontSize: 14 }}>Assigned workers</div>
+                <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>Assigned workers</div>
               </div>
             </div>
           </details>
@@ -347,7 +347,7 @@ export default function AdminClePreviewPage() {
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
               <div>
                 <h2 style={{ margin: 0 }}>Goals</h2>
-                <p style={{ color: "#5d6878", margin: "5px 0 0" }}>
+                <p style={{ color: "var(--dn-muted, #5d6878)", margin: "5px 0 0" }}>
                   These goals control what workers see on the service note. In the real CLE portal, the CLE can add and edit them.
                 </p>
               </div>
@@ -357,9 +357,9 @@ export default function AdminClePreviewPage() {
             <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
               {groupedGoals.map((group) => (
                 <section className="dn-goal-category" key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "#fff7cf", borderLeft: "6px solid var(--dn-pink)" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "var(--dn-warm-panel, #fff7cf)", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
-                    <div style={{ display: "flex", gap: 6 }}><button type="button" disabled style={disabledButtonStyle}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove Category</button>}</div>
+                    <div style={{ display: "flex", gap: 6 }}><button type="button" disabled style={disabledButtonStyle}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled style={{ ...disabledButtonStyle, color: "var(--dn-error, #9b2c2c)" }}>Remove Category</button>}</div>
                   </div>
                   {group.goals.map((goal, index) => {
                     const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length
@@ -378,14 +378,14 @@ export default function AdminClePreviewPage() {
                             <div style={{ color: "var(--dn-blue)", fontSize: 13, fontWeight: 700, marginTop: 4 }}>
                               {applicableIds.length ? applicableNames.join(" · ") || "No active services" : "All services"}
                             </div>
-                            {goal.requires_prompt_level && <span style={{ display: "inline-block", marginTop: 7, marginRight: 6, padding: "3px 7px", borderRadius: 999, background: "var(--dn-pink-pale)", color: "#8f3655", fontSize: 12, fontWeight: 700 }}>Prompt level</span>}
-                            {goal.requires_detail && <span style={{ display: "inline-block", marginTop: 7, marginRight: 6, padding: "3px 7px", borderRadius: 999, background: "var(--dn-pink-pale)", color: "#8f3655", fontSize: 12, fontWeight: 700 }}>Written detail</span>}
+                            {goal.requires_prompt_level && <span style={{ display: "inline-block", marginTop: 7, marginRight: 6, padding: "3px 7px", borderRadius: 999, background: "var(--dn-pink-pale)", color: "var(--dn-error, #8f3655)", fontSize: 12, fontWeight: 700 }}>Prompt level</span>}
+                            {goal.requires_detail && <span style={{ display: "inline-block", marginTop: 7, marginRight: 6, padding: "3px 7px", borderRadius: 999, background: "var(--dn-pink-pale)", color: "var(--dn-error, #8f3655)", fontSize: 12, fontWeight: 700 }}>Written detail</span>}
                           </div>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                             <button type="button" disabled style={disabledButtonStyle}>↑</button>
                             <button type="button" disabled style={disabledButtonStyle}>↓</button>
                             <button type="button" disabled style={disabledButtonStyle}>Edit</button>
-                            <button type="button" disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button>
+                            <button type="button" disabled style={{ ...disabledButtonStyle, color: "var(--dn-error, #9b2c2c)" }}>Remove</button>
                           </div>
                         </div>
                       </article>
@@ -394,7 +394,7 @@ export default function AdminClePreviewPage() {
                 </section>
               ))}
               {!groupedGoals.length && (
-                <p style={{ padding: 16, borderRadius: 9, background: "var(--dn-blue-pale)", color: "#5d6878" }}>
+                <p style={{ padding: 16, borderRadius: 9, background: "var(--dn-blue-pale)", color: "var(--dn-muted, #5d6878)" }}>
                   No active goals yet. The CLE will be able to use Add Goal here.
                 </p>
               )}
@@ -405,7 +405,7 @@ export default function AdminClePreviewPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14, marginBottom: 14 }}>
                 <label style={{ fontWeight: 800, minWidth: 0 }}>
                   Category
-                  <span style={{ display: "block", color: "#5d6878", fontSize: 14, lineHeight: 1.4, fontWeight: 400, whiteSpace: "normal", overflowWrap: "anywhere" }}>
+                  <span style={{ display: "block", color: "var(--dn-muted, #5d6878)", fontSize: 14, lineHeight: 1.4, fontWeight: 400, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                     The CLE can choose an existing category or type a new one.
                   </span>
                   <input disabled placeholder="Select or type a category" style={previewInputStyle} />
@@ -418,7 +418,7 @@ export default function AdminClePreviewPage() {
               {activeParticipantServices.length > 0 && (
                 <fieldset disabled style={{ margin: "0 0 14px", padding: 14, borderRadius: 9, border: "1px solid var(--dn-border)" }}>
                   <legend style={{ fontWeight: 800 }}>Services for this goal</legend>
-                  <p style={{ color: "#5d6878", marginTop: 0 }}>The CLE can choose which services should show this goal.</p>
+                  <p style={{ color: "var(--dn-muted, #5d6878)", marginTop: 0 }}>The CLE can choose which services should show this goal.</p>
                   <div style={{ display: "grid", gap: 8 }}>
                     {activeParticipantServices.map((service) => (
                       <label key={service.id} style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -431,22 +431,22 @@ export default function AdminClePreviewPage() {
               <label style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12, fontWeight: 700 }}><input type="checkbox" disabled /> Ask the worker to select a prompt level</label>
               <label style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 12, fontWeight: 700 }}><input type="checkbox" disabled /> Ask the worker for written details</label>
               <button type="button" disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Goal</button>
-              <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
+              <p style={{ marginBottom: 0, color: "var(--dn-alert, #92400e)", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
             </div>
           </section>
 
           <details style={{ ...cardStyle, order: 7 }}>
             <summary style={{ cursor: "pointer", fontSize: 24, fontWeight: 800 }}>Outcomes</summary>
-            <p style={{ color: "#5d6878" }}>A participant may have more than one outcome.</p>
-            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, marginBottom: 10, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "#5d6878" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button disabled style={disabledButtonStyle}>Edit</button><button disabled style={{ ...disabledButtonStyle, color: "#9b2c2c" }}>Remove</button></div></article>)}
+            <p style={{ color: "var(--dn-muted, #5d6878)" }}>A participant may have more than one outcome.</p>
+            {(participant.participant_outcomes || []).map((outcome) => <article key={outcome.id} style={{ padding: 14, marginBottom: 10, border: "1px solid var(--dn-border)", borderRadius: 11, background: "var(--dn-blue-pale)" }}><strong>{outcome.outcome_phrase || "Outcome"}</strong>{outcome.outcome_statement && <p style={{ whiteSpace: "pre-wrap" }}>{outcome.outcome_statement}</p>}{outcome.outcome_action_plan && <p style={{ whiteSpace: "pre-wrap", color: "var(--dn-muted, #5d6878)" }}>{outcome.outcome_action_plan}</p>}<div style={{ display: "flex", gap: 8 }}><button disabled style={disabledButtonStyle}>Edit</button><button disabled style={{ ...disabledButtonStyle, color: "var(--dn-error, #9b2c2c)" }}>Remove</button></div></article>)}
             {!participant.participant_outcomes?.length && <p>No outcomes have been added.</p>}
             <button disabled style={{ ...disabledButtonStyle, background: "var(--dn-primary)", color: "white" }}>Add Outcome</button>
-            <p style={{ color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
+            <p style={{ color: "var(--dn-alert, #92400e)", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
           </details>
 
           <section style={{ ...cardStyle, order: 5 }}>
             <h2 style={{ margin: "0 0 5px" }}>Prompt Levels</h2>
-            <p style={{ color: "#5d6878", marginTop: 0 }}>
+            <p style={{ color: "var(--dn-muted, #5d6878)", marginTop: 0 }}>
               The CLE can choose which prompt levels workers see whenever a goal requires a prompt level.
             </p>
             <div style={{ display: "grid", gap: 8, maxWidth: 620 }}>
@@ -462,7 +462,7 @@ export default function AdminClePreviewPage() {
                       padding: "10px 12px",
                       borderRadius: 9,
                       border: `1px solid ${selected ? "var(--dn-pink)" : "var(--dn-border)"}`,
-                      background: selected ? "var(--dn-pink-pale)" : "white",
+                      background: selected ? "var(--dn-pink-pale)" : "var(--dn-legacy-panel, white)",
                     }}
                   >
                     <input type="checkbox" checked={selected} disabled readOnly />
@@ -477,13 +477,13 @@ export default function AdminClePreviewPage() {
             <button type="button" disabled style={{ ...disabledButtonStyle, marginTop: 14, background: "var(--dn-primary)", color: "white" }}>
               Save Prompt Levels
             </button>
-            <p style={{ marginBottom: 0, color: "#92400e", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
+            <p style={{ marginBottom: 0, color: "var(--dn-alert, #92400e)", fontSize: 14, fontWeight: 700 }}>Controls are disabled only because this is the Admin preview.</p>
           </section>
 
           <section style={{ ...cardStyle, order: 6 }}>
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Assigned Workers</h2>
             <RecentNoteSettings participantId={participant.id} readOnly />
-            <p style={{ marginTop: 0, color: "#4b5563" }}>
+            <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)" }}>
               Read-only admin preview. CLEs can remove a worker's access from their own portal.
             </p>
             {assignedWorkers.length === 0 ? (
@@ -497,30 +497,30 @@ export default function AdminClePreviewPage() {
                       padding: 12,
                       border: "1px solid #d9e7e4",
                       borderRadius: 14,
-                      background: "#f8fffd",
+                      background: "var(--dn-legacy-panel, #f8fffd)",
                     }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                       <div>
                         <strong>{worker.name}</strong>
-                        <div style={{ color: "#4b5563", fontSize: 14 }}>
+                        <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                           {worker.email ? `${worker.email} · ` : ""}Last submitted note: {formatDate(worker.last_note_date)}
                         </div>
                       </div>
-                      <button type="button" disabled style={{ ...disabledButtonStyle, borderColor: "#fecaca", color: "#991b1b" }}>Remove Access</button>
+                      <button type="button" disabled style={{ ...disabledButtonStyle, borderColor: "#fecaca", color: "var(--dn-error, #991b1b)" }}>Remove Access</button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#fffbeb", color: "#92400e" }}>
+            <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "var(--dn-warm-panel, #fffbeb)", color: "var(--dn-alert, #92400e)" }}>
               Need to add a worker? Email Bradley at bradley@supportsbroker.com for now.
             </div>
           </section>
 
           <section style={{ ...cardStyle, order: 3 }}>
             <h2 style={{ marginTop: 0 }}>Note Delivery Preferences</h2>
-            <p style={{ color: "#4b5563" }}>Choose one or more ways you would like to receive service notes.</p>
+            <p style={{ color: "var(--dn-muted, #4b5563)" }}>Choose one or more ways you would like to receive service notes.</p>
             <div style={{ display: "grid", gap: 8 }}>
               {DELIVERY_OPTIONS.map((option) => (
                 <label
@@ -532,7 +532,7 @@ export default function AdminClePreviewPage() {
                     padding: 12,
                     border: deliveryPreferences.includes(option.value) ? "2px solid var(--dn-primary)" : "1px solid #d9e7e4",
                     borderRadius: 12,
-                    background: deliveryPreferences.includes(option.value) ? "var(--dn-pink-pale)" : "#ffffff",
+                    background: deliveryPreferences.includes(option.value) ? "var(--dn-pink-pale)" : "var(--dn-legacy-panel, #ffffff)",
                   }}
                 >
                   <input type="checkbox" checked={deliveryPreferences.includes(option.value)} disabled readOnly />
@@ -547,7 +547,7 @@ export default function AdminClePreviewPage() {
             <h2 style={{ marginTop: 0, marginBottom: 8 }}>Submitted Service Notes</h2>
             <div className="dn-archive" style={{ marginBottom: 16, padding: 14, borderRadius: 12, background: "var(--dn-yellow-pale)", border: "1px solid #f3d66c" }}>
               <h3 style={{ margin: "0 0 5px" }}>Monthly Archive</h3>
-              <p style={{ color: "#4b5563", marginTop: 0 }}>
+              <p style={{ color: "var(--dn-muted, #4b5563)", marginTop: 0 }}>
                 Download one combined PDF for a calendar month. Each service note starts on its own page.
               </p>
               {archiveMonthOptions.length === 0 ? (
@@ -567,7 +567,7 @@ export default function AdminClePreviewPage() {
               <>
                 <details style={{ marginBottom: 14 }}>
                   <summary style={{ cursor: "pointer", fontWeight: 700 }}>Filter notes</summary>
-                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520, padding: 12, borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "grid", gap: 10, marginTop: 12, maxWidth: 520, padding: 12, borderRadius: 12, background: "var(--dn-legacy-panel, #f8fafc)", border: "1px solid #e2e8f0" }}>
                     <label>
                       Date
                       <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} style={{ display: "block", width: "100%", padding: 8, marginTop: 4 }} />
@@ -597,19 +597,19 @@ export default function AdminClePreviewPage() {
                   </div>
                 </details>
 
-                <p style={{ marginTop: 0, color: "#4b5563", fontSize: 14 }}>
+                <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                   Showing {filteredNotes.length} of {notes.length} notes. Scroll inside the box below to view more.
                 </p>
 
                 {filteredNotes.length === 0 ? (
                   <p>No notes match those filters.</p>
                 ) : (
-                  <div className="dn-note-list" style={{ display: "grid", gap: 8, maxHeight: 430, overflowY: "auto", padding: 10, border: "2px solid #cfe5df", borderRadius: 14, background: "#f8fffd" }}>
+                  <div className="dn-note-list" style={{ display: "grid", gap: 8, maxHeight: 430, overflowY: "auto", padding: 10, border: "2px solid #cfe5df", borderRadius: 14, background: "var(--dn-legacy-panel, #f8fffd)" }}>
                     {filteredNotes.map((note) => (
-                      <div key={note.id} style={{ padding: 12, border: "1px solid #d9e7e4", borderRadius: 12, background: "#ffffff", display: "grid", gap: 6 }}>
+                      <div key={note.id} style={{ padding: 12, border: "1px solid #d9e7e4", borderRadius: 12, background: "var(--dn-legacy-panel, #ffffff)", display: "grid", gap: 6 }}>
                         <strong>{note.title}</strong>
                         <CleNoteCorrections noteId={note.id} readOnly />
-                        <div style={{ color: "#4b5563", fontSize: 14 }}>
+                        <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                           Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

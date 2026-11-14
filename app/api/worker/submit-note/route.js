@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { shiftInterval, shiftsOverlap } from "../../../../lib/shift-dates.mjs";
 
 export const runtime = "nodejs";
 
@@ -18,15 +19,6 @@ function text(value) {
 function normalizeObject(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [String(key), text(item)]));
-}
-
-function timeToMinutes(value) {
-  const match = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(String(value || ""));
-  if (!match) return null;
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return null;
-  return hours * 60 + minutes;
 }
 
 function easternDate(timestamp) {
@@ -67,6 +59,7 @@ export async function POST(request) {
   const participantId = text(body.participantId);
   const currentNoteId = text(body.currentNoteId);
   const shiftDate = text(body.shiftDate);
+  const shiftEndDate = text(body.shiftEndDate ?? shiftDate);
   const timeIn = text(body.timeIn);
   const timeOut = text(body.timeOut);
   const service = text(body.service);
@@ -81,16 +74,13 @@ export async function POST(request) {
   const signatureFont = text(body.signatureFont) || "Pacifico";
 
   if (!participantId) return json({ error: "Choose a participant." }, 400);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(shiftDate)) return json({ error: "Choose a valid date of service." }, 400);
   if (!narrative) return json({ error: "Complete the service-note narrative." }, 400);
   if (!body.signatureAttested) return json({ error: "Certify the note before submitting it." }, 400);
   if (signatureMode === "typed" && !typedSignature) return json({ error: "Type your signature before submitting." }, 400);
   if (signatureMode === "draw" && !drawnSignature) return json({ error: "Draw your signature before submitting." }, 400);
 
-  const startMinutes = timeToMinutes(timeIn);
-  const endMinutes = timeToMinutes(timeOut);
-  if (startMinutes === null || endMinutes === null) return json({ error: "Enter valid start and end times." }, 400);
-  if (endMinutes <= startMinutes) return json({ error: "The end time must be later than the start time. Use separate notes when service crosses midnight." }, 400);
+  const interval = shiftInterval(shiftDate, timeIn, shiftEndDate, timeOut);
+  if (!interval) return json({ error: "Enter valid dates and times. The shift must end after it starts." }, 400);
 
   const { data: assignment } = await admin.from("worker_participants").select("participant_id")
     .eq("worker_id", worker.id).eq("participant_id", participantId).maybeSingle();
@@ -111,18 +101,16 @@ export async function POST(request) {
     if (!draft) return json({ error: "Only your own saved draft can be submitted." }, 403);
   }
 
-  const { data: sameDayNotes, error: overlapError } = await admin.from("service_notes")
-    .select("id, time_in, time_out, participants(name)").eq("worker_id", worker.id)
-    .eq("shift_date", shiftDate).eq("status", "submitted");
+  const { data: nearbyNotes, error: overlapError } = await admin.from("service_notes")
+    .select("shift_date, shift_end_date, time_in, time_out").eq("worker_id", worker.id)
+    .lte("shift_date", shiftEndDate).or(`shift_date.gte.${shiftDate},shift_end_date.gte.${shiftDate}`)
+    .eq("status", "submitted");
   if (overlapError) return json({ error: "Existing notes could not be checked for overlapping time." }, 500);
-  const overlap = (sameDayNotes || []).find((note) => {
-    if (currentNoteId && note.id === currentNoteId) return false;
-    const existingStart = timeToMinutes(note.time_in);
-    const existingEnd = timeToMinutes(note.time_out);
-    return existingStart !== null && existingEnd !== null && startMinutes < existingEnd && endMinutes > existingStart;
-  });
+  const overlap = (nearbyNotes || []).some((note) => shiftsOverlap(interval, shiftInterval(
+    note.shift_date, note.time_in, note.shift_end_date || note.shift_date, note.time_out,
+  )));
   if (overlap) return json({
-    error: `This time overlaps a submitted note${overlap.participants?.name ? ` for ${overlap.participants.name}` : ""}. Check the start and end times before submitting.`,
+    error: "This time overlaps one of your submitted notes. Check the start and end dates and times.",
   }, 409);
 
   let selectedGoals = [];
@@ -153,6 +141,7 @@ export async function POST(request) {
 
   const draftValues = {
     worker_id: worker.id, participant_id: participantId, shift_date: shiftDate, time_in: timeIn,
+    shift_end_date: shiftEndDate,
     time_out: timeOut, service, location: location === "home" ? "home" : "community",
     narrative, goals: selectedGoalIds, goal_details: goalDetails, prompt_levels: promptLevels,
     status: "draft", worker_signature_mode: signatureMode,

@@ -158,7 +158,7 @@ return (
       <div
         className="dn-auth-card"
         style={{
-          background: "#ffffff",
+          background: "var(--dn-legacy-panel, #ffffff)",
           border: "1px solid var(--dn-border)",
           borderRadius: 18,
           padding: 28,
@@ -168,7 +168,7 @@ return (
       <h1 style={{ marginTop: 0, marginBottom: 8, color: "var(--dn-primary)" }}>
         Sign In
       </h1>
-      <p style={{ marginTop: 0, color: "#4b5563" }}>
+      <p style={{ marginTop: 0, color: "var(--dn-muted, #4b5563)" }}>
         Sign in with your email and password.
       </p>
 
@@ -239,7 +239,7 @@ return (
           padding: 0,
           border: "none",
           background: "transparent",
-          color: "#2563eb",
+          color: "var(--dn-blue, #2563eb)",
           cursor: resetSending ? "default" : "pointer",
           fontSize: 14,
           textDecoration: "underline",
@@ -249,7 +249,7 @@ return (
       </button>
 
       {resetMessage ? (
-        <p style={{ fontSize: 14, color: "#4b5563", lineHeight: 1.4 }}>
+        <p style={{ fontSize: 14, color: "var(--dn-muted, #4b5563)", lineHeight: 1.4 }}>
           {resetMessage}
         </p>
       ) : null}
@@ -261,7 +261,7 @@ return (
           borderTop: "1px solid var(--dn-border)",
           fontSize: 14,
           lineHeight: 1.5,
-          color: "#4b5563",
+          color: "var(--dn-muted, #4b5563)",
         }}
       >
         <p style={{ margin: 0 }}>
