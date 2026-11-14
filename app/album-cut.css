@@ -2,7 +2,7 @@
 .dn-brand-toggle { position: relative; z-index: 1; display: grid; place-items: center; padding: 0; border: 0; background: transparent; }
 .dn-brand-toggle:not(:disabled):hover { background: transparent; box-shadow: none; }
 .dn-note-editor { min-width: 0; margin: 0; padding: 0; border: 0; }
-.dn-shift-dates { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; }
+.dn-shift-dates { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; min-width: 0; }
 .dn-shift-dates label { min-width: 0; font-weight: 700; }
 .dn-shift-dates input { display: block; width: 100%; min-inline-size: 0; box-sizing: border-box; margin: 4px 0 0; padding: 8px; font-weight: 400; }
 .dn-shift-hint { grid-column: 1 / -1; color: var(--dn-muted); }
@@ -13,7 +13,15 @@
 html[data-dn-theme="dark"] .dn-note-actions button:not(:first-child) { color: var(--dn-primary-dark); }
 .dn-note-actions button:disabled { opacity: .62; }
 .dn-draft-hint { color: var(--dn-muted); font-size: .9rem; margin: 10px 0 0; }
-@media (max-width: 440px) { .dn-shift-dates { grid-template-columns: 1fr; gap: 10px; } }
+@media (max-width: 440px) {
+  .dn-shift-dates { grid-template-columns: minmax(0,1fr); gap: 10px; }
+  /* iOS native date/time chrome can extend past the input's sized box. */
+  .dn-shift-dates input { -webkit-appearance: none; appearance: none; text-align: center; }
+  .dn-shift-dates input::-webkit-date-and-time-value { margin: 0; text-align: center; }
+}
+@media (min-width: 761px) {
+  .dn-note-actions { width: 100%; margin-inline: auto; }
+}
 
 html[data-dn-theme="dark"] {
   color-scheme: dark;
