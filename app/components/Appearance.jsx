@@ -45,19 +45,6 @@ export default function Appearance() {
         <img src="/dreamnote-d-transparent.png" alt="" width="86" height="86" />
       </button>
       <span className="dn-brand-name"><span className="dn-visually-hidden">D</span>reamNote</span>
-      <details className="dn-appearance">
-        <summary>Appearance</summary>
-        <div className="dn-appearance-options" role="group" aria-label="Color scheme">
-          {options.map((option) => (
-            <label key={option}>
-              <input type="radio" name="dreamnote-appearance" checked={choice === option}
-                aria-label={option === "light" ? "Light" : option === "dark" ? "Dark" : "Use device setting"}
-                onChange={() => choose(option)} />
-              {option === "light" ? "Light" : option === "dark" ? "Dark" : "Use device setting"}
-            </label>
-          ))}
-        </div>
-      </details>
     </header>
   );
 }

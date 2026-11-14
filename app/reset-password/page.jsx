@@ -5,11 +5,12 @@ import { supabase } from "../../lib/supabase";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("Opening your secure reset link...");
+  const [message, setMessage] = useState("Opening your secure link...");
   const [sessionReady, setSessionReady] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(null);
   const [verifying, setVerifying] = useState(false);
+  const [isInvite, setIsInvite] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -51,7 +52,8 @@ export default function ResetPasswordPage() {
         if (tokenHash && ["recovery", "invite"].includes(verificationType)) {
           if (active) {
             setPendingVerification({ tokenHash, type: verificationType });
-            setMessage("Press Continue to open your secure DreamNote password link.");
+            setIsInvite(verificationType === "invite");
+            setMessage("Continue to set your password.");
           }
           return;
         }
@@ -134,7 +136,7 @@ export default function ResetPasswordPage() {
   async function handleReset(e) {
     e.preventDefault();
 
-    if (!sessionReady) {
+    if (!sessionReady || pendingVerification) {
       setMessage("Open a fresh password-reset link from your email first.");
       return;
     }
@@ -162,35 +164,32 @@ export default function ResetPasswordPage() {
 
   return (
     <main className="dn-reset-page" style={{ padding: 40 }}>
-      <h1>Reset Password</h1>
+      <h1>{isInvite ? "Set Up Your DreamNote Account" : "Reset Password"}</h1>
+
+      <p role="status">{message}</p>
 
       {pendingVerification ? (
-        <button type="button" onClick={handleContinue} disabled={verifying} style={{ marginBottom: 18 }}>
-          {verifying ? "Opening..." : "Continue to Password Reset"}
+        <button type="button" onClick={handleContinue} disabled={verifying}>
+          {verifying ? "Opening..." : "Continue"}
         </button>
+      ) : sessionReady ? (
+        <form onSubmit={handleReset}>
+          <label htmlFor="dreamnote-new-password">New password</label>
+          <input
+            id="dreamnote-new-password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            minLength={8}
+            autoComplete="new-password"
+            required
+            disabled={saving}
+          />
+          <button type="submit" disabled={saving}>
+            {saving ? "Saving..." : isInvite ? "Set Password" : "Update Password"}
+          </button>
+        </form>
       ) : null}
-
-      <form onSubmit={handleReset}>
-        <input
-          type="password"
-          placeholder="New password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          minLength={8}
-          autoComplete="new-password"
-          disabled={!sessionReady || saving}
-        />
-
-        <button
-          type="submit"
-          disabled={!sessionReady || saving}
-          style={{ marginLeft: 10 }}
-        >
-          {saving ? "Updating..." : "Update Password"}
-        </button>
-      </form>
-
-      <p>{message}</p>
     </main>
   );
 }

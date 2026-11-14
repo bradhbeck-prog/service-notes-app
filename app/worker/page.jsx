@@ -6,6 +6,7 @@ import { supabase } from "../../lib/supabase";
 import { WorkerCorrections } from "../components/NoteCorrections";
 import { WorkerRecentNotes } from "../components/RecentNotes";
 import ShiftDates from "../components/ShiftDates";
+import NoteActions from "../components/NoteActions";
 import { easternShiftDefaults, shiftInterval, suggestedEndDate } from "../../lib/shift-dates.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
@@ -675,7 +676,7 @@ if (selectedParticipant) {
       >
         <h2 className="dn-note-section-title"><span className="dn-step dn-step-blue" aria-hidden="true">01</span>Shift details</h2>
         <ShiftDates startDate={shiftDate} endDate={endDateOverride} startTime={timeIn} endTime={timeOut}
-          setStartDate={setShiftDate} setEndDate={setEndDateOverride} setStartTime={setTimeIn} setEndTime={setTimeOut} onEdit={() => setDirty(true)} />
+          setStartDate={setShiftDate} setEndDate={setEndDateOverride} setStartTime={setTimeIn} setEndTime={setTimeOut} />
 
         <div>
           <label
@@ -1125,80 +1126,14 @@ onChange={(e) => {
       </div>
 
       </fieldset>
-      <div className="dn-note-actions">
-        <button
-          onClick={handleSubmitNote}
-          disabled={saving}
-          style={{
-            padding: "10px 18px",
-            fontSize: 16,
-            cursor: "pointer",
-            borderRadius: 10,
-            border: "none",
-            background: "var(--dn-primary)",
-            color: "#ffffff",
-            fontWeight: 600,
-          }}
-        >
-          {saving ? "Saving..." : "Submit Note"}
-        </button>
-
-        <button
-          onClick={handleSaveDraft}
-          disabled={saving}
-          style={{
-            padding: "10px 18px",
-            fontSize: 16,
-            cursor: "pointer",
-            borderRadius: 10,
-            border: "1px solid var(--dn-border)",
-            background: "var(--dn-legacy-panel, #ffffff)",
-            color: "var(--dn-primary)",
-            fontWeight: 600,
-          }}
-        >
-          Save Note
-        </button>
-
-        <button
-          onClick={handleDeleteDraft}
-          disabled={saving || (!dirty && !currentNoteId)}
-          style={{
-            padding: "10px 18px",
-            fontSize: 16,
-            cursor: "pointer",
-            borderRadius: 10,
-            border: "1px solid var(--dn-border)",
-            background: "var(--dn-legacy-panel, #ffffff)",
-            color: "var(--dn-primary)",
-            fontWeight: 600,
-          }}
-        >
-          Clear Note
-        </button>
-
-<button
-  onClick={() => {
-    if (dirty && !window.confirm("Leave this note? Changes since your last save will be lost.")) return;
-    setDirty(false);
-    setSelectedParticipant(null);
-    setMessage("");
-  }}
-          disabled={saving}
-          style={{
-            padding: "10px 18px",
-            fontSize: 16,
-            cursor: "pointer",
-            borderRadius: 10,
-            border: "1px solid var(--dn-border)",
-            background: "var(--dn-legacy-panel, #ffffff)",
-            color: "var(--dn-primary)",
-            fontWeight: 600,
-          }}
-        >
-          Choose Another Person
-        </button>
-      </div>
+      <NoteActions busy={saving} canClear={Boolean(dirty || currentNoteId)}
+        onSubmit={handleSubmitNote} onSave={handleSaveDraft} onClear={handleDeleteDraft}
+        onBack={() => {
+          if (dirty && !window.confirm("Leave this note? Changes since your last save will be lost.")) return;
+          setDirty(false);
+          setSelectedParticipant(null);
+          setMessage("");
+        }} />
 
       <p className="dn-draft-hint">Save Note keeps an unfinished draft. Changes aren’t saved automatically.</p>
       <p role="status" style={{ marginTop: 10 }}>{message}</p>

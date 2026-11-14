@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "../../../lib/supabase";
 import ShiftDates from "../../components/ShiftDates";
+import NoteActions from "../../components/NoteActions";
 import { easternShiftDefaults } from "../../../lib/shift-dates.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
@@ -593,21 +594,7 @@ export default function NoteTemplatePreviewPage() {
               </span>
             </label>
 
-            <button
-              type="button"
-              disabled
-              style={{
-                padding: "10px 18px",
-                fontSize: 16,
-                borderRadius: 10,
-                border: "none",
-                background: "#94a3b8",
-                color: "#ffffff",
-                fontWeight: 600,
-              }}
-            >
-              Submit Note disabled in preview
-            </button>
+            <NoteActions preview />
           </div>
 
           <details style={cardStyle}>
