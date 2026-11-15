@@ -7,6 +7,7 @@ import { WorkerCorrections } from "../components/NoteCorrections";
 import { WorkerRecentNotes } from "../components/RecentNotes";
 import ShiftDates from "../components/ShiftDates";
 import NoteActions from "../components/NoteActions";
+import { LateSubmissionDialog, NoteHelp } from "../components/WorkerNoteDialogs";
 import { easternShiftDefaults, shiftInterval, suggestedEndDate } from "../../lib/shift-dates.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
@@ -124,6 +125,7 @@ function normalizeGoalDetails(value) {
 export default function Page() {
   const [pin, setPin] = useState("");
   const [message, setMessage] = useState("");
+  const [lateSubmissionOpen, setLateSubmissionOpen] = useState(false);
   const [worker, setWorker] = useState(null);
   const [participants, setParticipants] = useState([]);
   const [selectedParticipant, setSelectedParticipant] = useState(null);
@@ -454,7 +456,8 @@ function getMissingPromptLevelLabels() {
     .map((goal) => goal.goal_label);
 }
 
-async function handleSubmitNote() {
+async function handleSubmitNote(lateSubmissionReason = "") {
+    if (saving) return;
     if (!worker || !selectedParticipant) {
       setMessage("Missing worker or participant");
       return;
@@ -502,15 +505,14 @@ async function handleSubmitNote() {
     setSaving(true);
     setMessage("");
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      setSaving(false);
-      setMessage("Your login session expired. Sign in again before submitting this note.");
-      return;
-    }
-
-    let submission;
+    let session, submission;
     try {
+      ({ data: { session } } = await supabase.auth.getSession());
+      if (!session?.access_token) {
+        setSaving(false);
+        setMessage("Your login session expired. Sign in again before submitting this note.");
+        return;
+      }
       const submitResponse = await fetch("/api/worker/submit-note", {
         method: "POST",
         headers: {
@@ -522,6 +524,7 @@ async function handleSubmitNote() {
           currentNoteId,
           shiftDate,
           shiftEndDate,
+          lateSubmissionReason,
           timeIn,
           timeOut,
           service,
@@ -540,6 +543,11 @@ async function handleSubmitNote() {
       submission = await submitResponse.json();
       if (!submitResponse.ok) {
         setSaving(false);
+        if (submission.code === "LATE_SUBMISSION_REASON_REQUIRED") {
+          setLateSubmissionOpen(true);
+          if (lateSubmissionReason) setMessage(submission.error);
+          return;
+        }
         setMessage(submission.error || "The service note could not be submitted.");
         return;
       }
@@ -550,6 +558,7 @@ async function handleSubmitNote() {
       return;
     }
 
+    setLateSubmissionOpen(false);
     resetEditorForParticipant(selectedParticipant);
     setDraftParticipantIds((current) => current.filter((id) => id !== selectedParticipant.id));
 
@@ -643,7 +652,7 @@ if (selectedParticipant) {
       }}
     >
       <div
-        className="dn-worker-heading"
+        className="dn-worker-heading dn-worker-note-header"
         style={{
           marginBottom: 20,
           padding: "18px 20px",
@@ -653,6 +662,7 @@ if (selectedParticipant) {
         }}
       >
         <h1 style={{ margin: 0 }}>Service Note</h1>
+        <NoteHelp />
       </div>
 
       <p>Support Service Professional: {worker.name}</p>
@@ -1127,16 +1137,19 @@ onChange={(e) => {
 
       </fieldset>
       <NoteActions busy={saving} canClear={Boolean(dirty || currentNoteId)}
-        onSubmit={handleSubmitNote} onSave={handleSaveDraft} onClear={handleDeleteDraft}
+        onSubmit={() => handleSubmitNote()} onSave={handleSaveDraft} onClear={handleDeleteDraft}
         onBack={() => {
           if (dirty && !window.confirm("Leave this note? Changes since your last save will be lost.")) return;
           setDirty(false);
           setSelectedParticipant(null);
           setMessage("");
         }} />
+      <LateSubmissionDialog open={lateSubmissionOpen} busy={saving}
+        message={lateSubmissionOpen ? message : ""} onSubmit={handleSubmitNote}
+        onClose={() => { setLateSubmissionOpen(false); setMessage(""); }} />
 
       <p className="dn-draft-hint">Save Note keeps an unfinished draft. Changes aren’t saved automatically.</p>
-      <p role="status" style={{ marginTop: 10 }}>{message}</p>
+      <p role="status" style={{ marginTop: 10 }}>{!lateSubmissionOpen && message}</p>
 
       <details style={{ marginTop: 20, padding: 12, border: "1px solid #ccc", borderRadius: 6 }}>
         <summary style={{ cursor: "pointer", fontWeight: 800 }}>Outcome Information</summary>

@@ -60,6 +60,7 @@ export async function POST(request) {
   const currentNoteId = text(body.currentNoteId);
   const shiftDate = text(body.shiftDate);
   const shiftEndDate = text(body.shiftEndDate ?? shiftDate);
+  const lateReason = typeof body.lateSubmissionReason === "string" ? body.lateSubmissionReason.trim() : "";
   const timeIn = text(body.timeIn);
   const timeOut = text(body.timeOut);
   const service = text(body.service);
@@ -139,6 +140,15 @@ export async function POST(request) {
     }
   }
 
+  // Use one server timestamp for both the deadline check and the signed note.
+  const submittedAt = new Date();
+  const dateCompleted = easternDate(submittedAt);
+  const isLate = dateCompleted > shiftEndDate;
+  if (isLate && (!lateReason || lateReason.length > 500)) return json({
+    code: "LATE_SUBMISSION_REASON_REQUIRED",
+    error: "Enter a reason for submitting after the shift’s end date (up to 500 characters).",
+  }, 422);
+
   const draftValues = {
     worker_id: worker.id, participant_id: participantId, shift_date: shiftDate, time_in: timeIn,
     shift_end_date: shiftEndDate,
@@ -167,12 +177,10 @@ export async function POST(request) {
     if (error) return json({ error: "The note remains a draft because its goal responses could not be saved." }, 500);
   }
 
-  const submittedAt = new Date();
   const signedAt = submittedAt.toISOString();
-  const dateCompleted = easternDate(submittedAt);
   const { data: submitted, error: submitError } = await admin.from("service_notes")
     .update({ status: "submitted", date_completed: dateCompleted, signed_at: signedAt,
-      signed_by_user_id: user.id, signature_attested: true })
+      signed_by_user_id: user.id, signature_attested: true, late_submission_reason: isLate ? lateReason : null })
     .eq("id", noteId).eq("status", "draft").select("id, date_completed, signed_at").single();
   if (submitError || !submitted) return json({ error: "The note remains a draft because final submission could not be completed." }, 500);
 

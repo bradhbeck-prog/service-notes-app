@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 const file = new URL("../app/api/worker/submit-note/route.js", import.meta.url);
 const source = (await readFile(file, "utf8"))
   .replace('import { createClient } from "@supabase/supabase-js";', "const createClient = () => globalThis.overnightTestDb;")
+  .replace("const submittedAt = new Date();", "const submittedAt = new Date(globalThis.overnightTestTime);")
   .replace('"../../../../lib/shift-dates.mjs"', JSON.stringify(new URL("../lib/shift-dates.mjs", import.meta.url).href));
 const { POST } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://test.invalid";
@@ -26,6 +27,7 @@ function mockDb(results) {
   return calls;
 }
 const setup = () => ["worker", "assignment", "participant", "service"].map(id => ({ data: { id } }));
+globalThis.overnightTestTime = "2026-11-14T17:00:00Z";
 function submit(overrides = {}) {
   return POST(new Request("https://test.invalid/api/worker/submit-note", {
     method: "POST", headers: { Authorization: "Bearer test" },
@@ -45,6 +47,8 @@ test("persists overnight dates and records completion on the server", async () =
   assert.equal(values.status, "draft");
   const finalized = calls.find(([table, method]) => table === "service_notes" && method === "update")[2];
   assert.equal(finalized.status, "submitted");
+  assert.equal(finalized.date_completed, "2026-11-14");
+  assert.equal(finalized.late_submission_reason, null);
   assert.notEqual(finalized.date_completed, "2001-01-01");
   assert.ok(finalized.signed_at);
 });
@@ -60,4 +64,30 @@ test("a required prompt level must still be filled in", async () => {
   const calls = mockDb([...setup(), { data: [] }, { data: [{ id: "goal", goal_label: "Evening routine", requires_prompt_level: true }] }]);
   assert.equal((await submit({ selectedGoals: ["goal"] })).status, 400);
   assert.ok(!calls.some(([, method]) => method === "insert"));
+});
+
+test("an 11:59 p.m. shift ending yesterday requires a nonblank reason before any write", async () => {
+  globalThis.overnightTestTime = "2026-11-14T05:02:00Z";
+  const calls = mockDb([...setup(), { data: [] }]);
+  const response = await submit({ shiftEndDate: "2026-11-13", timeOut: "23:59", lateSubmissionReason: "   " });
+  assert.equal(response.status, 422);
+  assert.equal((await response.json()).code, "LATE_SUBMISSION_REASON_REQUIRED");
+  assert.ok(!calls.some(([, method]) => ["insert", "update", "delete"].includes(method)));
+});
+
+test("a late signed note stores the trimmed reason separately from its narrative", async () => {
+  globalThis.overnightTestTime = "2026-11-15T05:01:00Z";
+  const calls = mockDb([...setup(), { data: [] }, { data: { id: "note" } }, {},
+    { data: { id: "note", date_completed: "2026-11-15", signed_at: "2026-11-15T05:01:00Z" } }]);
+  assert.equal((await submit({ lateSubmissionReason: "  Internet service was down.  " })).status, 201);
+  assert.equal(calls.find(([, method]) => method === "insert")[2].narrative, "Fictional note.");
+  assert.equal(calls.find(([, method]) => method === "update")[2].late_submission_reason, "Internet service was down.");
+});
+
+test("a submission after UTC midnight but before Eastern midnight does not need a reason", async () => {
+  globalThis.overnightTestTime = "2026-11-14T04:59:00Z";
+  const calls = mockDb([...setup(), { data: [] }, { data: { id: "note" } }, {},
+    { data: { id: "note", date_completed: "2026-11-13", signed_at: "2026-11-14T04:59:00Z" } }]);
+  assert.equal((await submit({ shiftEndDate: "2026-11-13", timeOut: "23:58" })).status, 201);
+  assert.equal(calls.find(([, method]) => method === "update")[2].late_submission_reason, null);
 });

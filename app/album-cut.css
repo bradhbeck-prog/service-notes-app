@@ -13,6 +13,18 @@
 html[data-dn-theme="dark"] .dn-note-actions button:not(:first-child) { color: var(--dn-primary-dark); }
 .dn-note-actions button:disabled { opacity: .62; }
 .dn-draft-hint { color: var(--dn-muted); font-size: .9rem; margin: 10px 0 0; }
+.dn-worker-note-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.dn-note-help { align-self: center; margin-inline-start: auto; padding: 6px 10px; border: 0; background: transparent; color: var(--dn-blue); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+.dn-note-dialog { width: min(34rem, calc(100% - 28px)); max-height: 85dvh; overflow: auto; overscroll-behavior: contain; padding: clamp(16px, 4vw, 24px); border: 1px solid var(--dn-border); border-radius: 8px; background: var(--dn-surface); color: var(--dn-text); }
+.dn-note-dialog::backdrop { background: rgba(9, 15, 24, .66); }
+.dn-note-dialog h2 { margin: 0 0 12px; }
+.dn-note-dialog form { background: transparent; }
+.dn-note-dialog label { display: block; }
+.dn-note-dialog textarea { display: block; width: 100%; margin-block: 8px 16px; padding: 8px; }
+.dn-note-dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-block-start: 16px; }
+.dn-note-dialog-actions button { padding: 6px 13px; border: 1px solid var(--dn-border); background: var(--dn-surface); color: var(--dn-text); font-weight: 700; }
+.dn-note-dialog-actions .dn-note-dialog-primary { background: var(--dn-primary); color: #fff; }
+.dn-note-dialog-actions button:disabled { opacity: .62; }
 @media (max-width: 440px) {
   .dn-shift-dates { grid-template-columns: minmax(0,1fr); gap: 10px; }
   /* iOS native date/time chrome can extend past the input's sized box. */
@@ -22,6 +34,26 @@ html[data-dn-theme="dark"] .dn-note-actions button:not(:first-child) { color: va
 @media (min-width: 761px) {
   .dn-note-actions { width: 100%; margin-inline: auto; }
 }
+
+/* Option 02: warm paper and quiet section rules, only on the light note views. */
+html:not([data-dn-theme="dark"]) .dn-app:has(.dn-note-page) { background: #efe8dc; }
+html:not([data-dn-theme="dark"]) .dn-note-page {
+  --dn-bg: #efe8dc;
+  --dn-surface: #f7efe3;
+  --dn-form: #fdfaf3;
+  --dn-border: #d5c8b7;
+  --dn-legacy-panel: var(--dn-form);
+}
+html:not([data-dn-theme="dark"]) .dn-note-page :is(input[type="date"],input[type="time"],input[type="text"],select,textarea) {
+  border-color: #9a8b76 !important;
+}
+html:not([data-dn-theme="dark"]) .dn-note-page :is(input,select,textarea):disabled {
+  background: #eee7da !important;
+}
+html:not([data-dn-theme="dark"]) .dn-note-page .dn-note-section-title:has(.dn-step-blue) { border-bottom-color: #3974b1; }
+html:not([data-dn-theme="dark"]) .dn-note-page .dn-note-section-title:has(.dn-step-pink) { border-bottom-color: #c45f7d; }
+html:not([data-dn-theme="dark"]) .dn-note-page .dn-note-section-title:has(.dn-step-yellow) { border-bottom-color: #ad791b; }
+html:not([data-dn-theme="dark"]) .dn-note-page .dn-note-section-title:has(.dn-step-teal) { border-bottom-color: #36877b; }
 
 html[data-dn-theme="dark"] {
   color-scheme: dark;
