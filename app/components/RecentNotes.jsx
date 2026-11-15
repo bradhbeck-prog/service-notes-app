@@ -2,16 +2,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 const panel = { margin: "14px 0", padding: 16, border: "1px solid var(--dn-border)", borderRadius: 12, background: "var(--dn-blue-pale, #eef6ff)" };
-async function call(participantId, settings, noteLimit) {
+async function call(participantId, settings, noteLimit, { accessOnly = false, signal } = {}) {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error("Please sign in again.");
-  const response = await fetch(`/api/worker/recent-notes?participantId=${encodeURIComponent(participantId)}${settings ? "&settings=1" : ""}`, {
-    method: noteLimit === undefined ? "GET" : "POST", cache: "no-store",
+  const response = await fetch(`/api/worker/recent-notes?participantId=${encodeURIComponent(participantId)}${settings ? "&settings=1" : accessOnly ? "&access=1" : ""}`, {
+    method: noteLimit === undefined ? "GET" : "POST", cache: "no-store", signal,
     headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
     ...(noteLimit === undefined ? {} : { body: JSON.stringify({ participantId, noteLimit }) }),
   });
   const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Recent notes are unavailable.");
+  if (!response.ok) throw Object.assign(new Error(result.error || "Recent notes are unavailable."), { status: response.status });
   return result;
 }
 export function RecentNoteSettings({ participantId, readOnly = false }) {
@@ -40,14 +40,33 @@ export function RecentNoteSettings({ participantId, readOnly = false }) {
   </section>;
 }
 export function WorkerRecentNotes({ participantId }) {
+  const [allowedParticipantId, setAllowedParticipantId] = useState(null);
   const [open, setOpen] = useState(false), [notes, setNotes] = useState([]), [busy, setBusy] = useState(false), [message, setMessage] = useState("");
-  useEffect(() => { setOpen(false); setNotes([]); setMessage(""); }, [participantId]);
+  useEffect(() => {
+    const controller = new AbortController();
+    setAllowedParticipantId(null); setOpen(false); setNotes([]); setMessage("");
+    call(participantId, false, undefined, { accessOnly: true, signal: controller.signal })
+      .then(result => {
+        if (!controller.signal.aborted && result.noteLimit) setAllowedParticipantId(participantId);
+      })
+      .catch(() => { /* Leave the section hidden if access cannot be confirmed. */ });
+    return () => controller.abort();
+  }, [participantId]);
   // Clear sensitive content when leaving this section; check permission every time it opens.
   async function toggle() {
     if (open) { setOpen(false); setNotes([]); return; }
     setOpen(true); setBusy(true); setNotes([]); setMessage("");
-    try { const result = await call(participantId, false); setNotes(result.notes); if (!result.noteLimit) setMessage("The CLE has not enabled access to recent notes."); else if (!result.notes.length) setMessage("No submitted notes yet."); } catch (error) { setMessage(error.message); } finally { setBusy(false); }
+    try {
+      const result = await call(participantId, false);
+      if (!result.noteLimit) { setAllowedParticipantId(null); setOpen(false); return; }
+      setNotes(result.notes);
+      if (!result.notes.length) setMessage("No submitted notes yet.");
+    } catch (error) {
+      if ([401, 403].includes(error.status)) { setAllowedParticipantId(null); setOpen(false); }
+      else setMessage(error.message);
+    } finally { setBusy(false); }
   }
+  if (allowedParticipantId !== participantId) return null;
   return <section style={panel}>
     <button type="button" onClick={toggle} aria-expanded={open}>Recent service notes {open ? "▴" : "▾"}</button>
     {open && <div style={{ maxHeight: "60vh", overflowY: "auto", overscrollBehavior: "contain", marginTop: 12 }}>

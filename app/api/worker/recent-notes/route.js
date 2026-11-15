@@ -35,8 +35,9 @@ export async function GET(request) {
   if (!assignment) return json({ error: "You are not assigned to this participant." }, 403);
   const { data: settings, error: settingsError } = await db.from("worker_note_view_settings").select("note_limit").eq("participant_id", participant.id).maybeSingle();
   if (settingsError) return json({ error: "Recent-note access could not be checked." }, 503);
-  const limit = settings?.note_limit || 0;
-  if (![5,10].includes(limit)) return json({ noteLimit: 0, notes: [] });
+  const limit = [5,10].includes(settings?.note_limit) ? settings.note_limit : 0;
+  if (url.searchParams.get("access") === "1") return json({ noteLimit: limit });
+  if (!limit) return json({ noteLimit: 0, notes: [] });
   const { data: notes, error } = await db.from("service_notes")
     .select("id,shift_date,shift_end_date,service,time_in,time_out,location,narrative,signed_at,goals,goal_details,prompt_levels,workers(name),service_note_goals(prompt_level,participant_goals(id,goal_label,category_name))")
     .eq("participant_id", participant.id).eq("status", "submitted").order("shift_date", { ascending: false }).order("signed_at", { ascending: false }).order("id", { ascending: false }).limit(limit);

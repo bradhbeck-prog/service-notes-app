@@ -19,6 +19,7 @@ function db(results, userId='worker') {
   return calls;
 }
 const get = settings => new Request(`https://test.invalid/api/worker/recent-notes?participantId=${id}${settings?'&settings=1':''}`, {headers:{authorization:'Bearer test'}});
+const getAccess = () => new Request(`${get().url}&access=1`, {headers:{authorization:'Bearer test'}});
 const post = limit => new Request('https://test.invalid/api/worker/recent-notes', {method:'POST',headers:{authorization:'Bearer test','Content-Type':'application/json'},body:JSON.stringify({participantId:id,noteLimit:limit})});
 test('unauthenticated recent-note requests are refused', async()=>assert.equal((await GET(new Request(`https://test.invalid/?participantId=${id}`))).status,401));
 test('unassigned worker cannot read notes or inspect the setting',async()=>{
@@ -32,6 +33,18 @@ test('access defaults to off and never fetches notes',async()=>{
   const calls=db([{data:participant},{data:{id}},{data:{id}},{data:null}]);
   assert.deepEqual(await (await GET(get())).json(),{noteLimit:0,notes:[]});
   assert.equal(calls.some(row=>row[0]==='service_notes'),false);
+});
+test('worker visibility check returns only the permitted limit, without reading notes', async () => {
+  for (const limit of [0, 5, 10]) {
+    const calls = db([{data:participant},{data:{id}},{data:{id}},{data:{note_limit:limit}}]);
+    assert.deepEqual(await (await GET(getAccess())).json(), {noteLimit:limit});
+    assert.ok(!calls.some(([table]) => table === 'service_notes' || table === 'note_corrections'));
+  }
+});
+test('worker visibility check requires a participant assignment', async () => {
+  const calls = db([{data:participant},{data:{id}},{data:null}]);
+  assert.equal((await GET(getAccess())).status, 403);
+  assert.ok(!calls.some(([table]) => table === 'worker_note_view_settings' || table === 'service_notes'));
 });
 test('worker cannot enable their own access',async()=>{
   const calls=db([{data:participant}]);
