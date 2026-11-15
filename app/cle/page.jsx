@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { CleNoteCorrections } from "../components/NoteCorrections";
 import { RecentNoteSettings } from "../components/RecentNotes";
+import { managementGoalGroups, moveCategory } from "../../lib/goal-category-order.mjs";
+import GoalCategoryOrderButtons from "../components/GoalCategoryOrderButtons";
 
 const SERVICE_CODES = {
   "In-Home and Community Supports": "W7060",
@@ -99,6 +101,7 @@ export default function ClePortalPage() {
   const [renamingCategory, setRenamingCategory] = useState("");
   const [categoryRenameDraft, setCategoryRenameDraft] = useState("");
   const [savingCategoryRename, setSavingCategoryRename] = useState(false);
+  const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const [selectedPromptLevels, setSelectedPromptLevels] = useState(DEFAULT_PROMPT_LEVELS);
   const [savingPromptLevels, setSavingPromptLevels] = useState(false);
   const [savingOutcome, setSavingOutcome] = useState(false);
@@ -260,24 +263,7 @@ export default function ClePortalPage() {
     .filter((service) => service.active && String(service.service_name || "").trim().toLowerCase() !== "respite")
     .sort((first, second) => String(first.service_name || "").localeCompare(String(second.service_name || "")));
 
-  const groupedGoals = useMemo(() => {
-    const groups = new Map();
-    for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
-      const category = goal.category_name?.trim() || "Uncategorized";
-      const categoryKey = category.toLocaleLowerCase();
-      if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
-      groups.get(categoryKey).goals.push(goal);
-    }
-    return [...groups.values()]
-      .sort((first, second) => first.category.localeCompare(second.category))
-      .map((group) => ({
-        category: group.category,
-        goals: group.goals.sort((first, second) =>
-          (Number(first.sort_order) || 0) - (Number(second.sort_order) || 0) ||
-          String(first.goal_label || "").localeCompare(String(second.goal_label || ""))
-        ),
-      }));
-  }, [participant]);
+  const groupedGoals = useMemo(() => managementGoalGroups(participant), [participant]);
 
   async function callGoalConfig(payload) {
     const { data: { session } } = await supabase.auth.getSession();
@@ -372,6 +358,22 @@ export default function ClePortalPage() {
       setMessage(result.message);
     } catch (error) {
       setMessage(`Could not remove goal: ${error.message}`);
+    }
+  }
+
+  async function moveGoalCategory(index, direction) {
+    if (savingCategoryOrder) return;
+    const categoryOrder = moveCategory(groupedGoals, index, direction);
+    if (!categoryOrder) return;
+    setSavingCategoryOrder(true);
+    try {
+      const result = await callGoalConfig({ action: "reorder_categories", categoryOrder });
+      await loadPortal();
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(`Could not reorder goal categories: ${error.message}`);
+    } finally {
+      setSavingCategoryOrder(false);
     }
   }
 
@@ -784,11 +786,11 @@ export default function ClePortalPage() {
             </div>
 
             <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
-              {groupedGoals.map((group) => (
+              {groupedGoals.map((group, categoryIndex) => (
                 <section className="dn-goal-category" key={group.category} style={{ border: "1px solid var(--dn-border)", borderRadius: 11, overflow: "hidden" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "var(--dn-warm-panel, #fff7cf)", borderLeft: "6px solid var(--dn-pink)" }}>
                     <h3 style={{ margin: 0, color: "var(--dn-blue)", overflowWrap: "anywhere" }}>{group.category}</h3>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><button
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><GoalCategoryOrderButtons category={group.category} index={categoryIndex} count={groupedGoals.length} disabled={savingCategoryOrder || savingCategoryRename} onMove={(direction) => moveGoalCategory(categoryIndex, direction)} style={smallButtonStyle} /><button
                       type="button"
                       disabled={savingCategoryRename}
                       onClick={() => {

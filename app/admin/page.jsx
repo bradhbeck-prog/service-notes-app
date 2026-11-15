@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { managementGoalGroups, moveCategory } from "../../lib/goal-category-order.mjs";
+import GoalCategoryOrderButtons from "../components/GoalCategoryOrderButtons";
 
 const C = { ink: "var(--dn-text)", muted: "var(--dn-muted)", teal: "var(--dn-primary)", blue: "var(--dn-blue)", pink: "var(--dn-pink)", yellow: "var(--dn-yellow)", pale: "var(--dn-form)", border: "var(--dn-border)" };
 const SERVICE_CATALOG = [
@@ -87,6 +89,7 @@ export default function AdminDashboard() {
   const [renamingCategory, setRenamingCategory] = useState("");
   const [categoryRenameDraft, setCategoryRenameDraft] = useState("");
   const [savingCategoryRename, setSavingCategoryRename] = useState(false);
+  const [savingCategoryOrder, setSavingCategoryOrder] = useState(false);
   const [savingOutcome, setSavingOutcome] = useState(false);
   const [editingOutcomeId, setEditingOutcomeId] = useState("");
   const [outcomeDraft, setOutcomeDraft] = useState({ phrase: "", statement: "", actionPlan: "" });
@@ -238,24 +241,7 @@ export default function AdminDashboard() {
     await loadData();
   }
 
-  const groupedGoals = useMemo(() => {
-    const groups = new Map();
-    for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
-      const category = goal.category_name?.trim() || "Uncategorized";
-      const categoryKey = category.toLocaleLowerCase();
-      if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
-      groups.get(categoryKey).goals.push(goal);
-    }
-    return [...groups.values()]
-      .sort((first, second) => first.category.localeCompare(second.category))
-      .map((group) => ({
-        category: group.category,
-        goals: group.goals.sort((first, second) =>
-          (Number(first.sort_order) || 0) - (Number(second.sort_order) || 0) ||
-          first.goal_label.localeCompare(second.goal_label)
-        ),
-      }));
-  }, [participant]);
+  const groupedGoals = useMemo(() => managementGoalGroups(participant), [participant]);
 
   function clearGoalDraft() {
     setEditingGoalId("");
@@ -323,6 +309,22 @@ export default function AdminDashboard() {
       setMessage(result.message); await loadData();
     } catch (error) {
       setMessage(`Could not remove goal: ${error.message}`);
+    }
+  }
+
+  async function moveGoalCategory(index, direction) {
+    if (savingCategoryOrder || servicesDirty) return;
+    const categoryOrder = moveCategory(groupedGoals, index, direction);
+    if (!categoryOrder) return;
+    setSavingCategoryOrder(true);
+    try {
+      const result = await callParticipantConfig({ action: "reorder_categories", categoryOrder });
+      await loadData();
+      setMessage(result.message);
+    } catch (error) {
+      setMessage(`Could not reorder goal categories: ${error.message}`);
+    } finally {
+      setSavingCategoryOrder(false);
     }
   }
 
@@ -549,8 +551,8 @@ export default function AdminDashboard() {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}><p style={{ color: C.muted, margin: "5px 0 0" }}>Goals are grouped by category. Use the arrows to change their order inside a category.</p><button disabled={servicesDirty} onClick={() => { clearGoalDraft(); document.getElementById("goal-editor")?.scrollIntoView({ behavior: "smooth", block: "center" }); }} style={{ ...button, opacity: servicesDirty ? .5 : 1 }}>Add Goal</button></div>
           {servicesDirty && <p style={{ padding: 10, borderRadius: 8, background: "var(--dn-yellow-pale)", fontWeight: 700 }}>Save the Services section above before changing goals.</p>}
           <div style={{ display: "grid", gap: 14, marginTop: 18 }}>
-            {groupedGoals.map((group) => <section className="dn-goal-category" key={group.category} style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "var(--dn-warm-panel, #fff7cf)", borderLeft: `6px solid ${C.pink}` }}><h3 style={{ margin: 0, color: C.blue }}>{group.category}</h3><div style={{ display: "flex", gap: 6 }}><button type="button" disabled={servicesDirty || savingCategoryRename} onClick={() => { setRenamingCategory(group.category); setCategoryRenameDraft(group.category); }} style={{ ...smallButton, opacity: servicesDirty || savingCategoryRename ? .45 : 1 }}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled={servicesDirty} onClick={() => removeCategory(group)} style={{ ...smallButton, color: "var(--dn-error, #9b2c2c)", opacity: servicesDirty ? .45 : 1 }}>Remove Category</button>}</div></div>
+            {groupedGoals.map((group, categoryIndex) => <section className="dn-goal-category" key={group.category} style={{ border: `1px solid ${C.border}`, borderRadius: 11, overflow: "hidden" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "9px 12px 9px 14px", background: "var(--dn-warm-panel, #fff7cf)", borderLeft: `6px solid ${C.pink}` }}><h3 style={{ margin: 0, color: C.blue }}>{group.category}</h3><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}><GoalCategoryOrderButtons category={group.category} index={categoryIndex} count={groupedGoals.length} disabled={savingCategoryOrder || savingCategoryRename || servicesDirty} onMove={(direction) => moveGoalCategory(categoryIndex, direction)} style={smallButton} /><button type="button" disabled={servicesDirty || savingCategoryRename} onClick={() => { setRenamingCategory(group.category); setCategoryRenameDraft(group.category); }} style={{ ...smallButton, opacity: servicesDirty || savingCategoryRename ? .45 : 1 }}>Rename</button>{group.category !== "Uncategorized" && <button type="button" disabled={servicesDirty} onClick={() => removeCategory(group)} style={{ ...smallButton, color: "var(--dn-error, #9b2c2c)", opacity: servicesDirty ? .45 : 1 }}>Remove Category</button>}</div></div>
               {renamingCategory === group.category && <form onSubmit={(event) => renameCategory(event, group)} style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8, padding: "10px 14px", background: "var(--dn-pink-pale)", borderTop: `1px solid ${C.border}` }}><label style={{ fontWeight: 700 }}>New category name</label><input autoFocus value={categoryRenameDraft} onChange={(event) => setCategoryRenameDraft(event.target.value)} style={{ ...input, flex: "1 1 240px", width: "auto" }} /><button type="submit" disabled={savingCategoryRename || !categoryRenameDraft.trim()} style={{ ...smallButton, background: C.teal, color: "white" }}>{savingCategoryRename ? "Saving…" : "Save"}</button><button type="button" onClick={() => { setRenamingCategory(""); setCategoryRenameDraft(""); }} style={smallButton}>Cancel</button></form>}
               {group.goals.map((goal, index) => {
                 const applicableIds = Array.isArray(goal.applicable_service_ids) && goal.applicable_service_ids.length

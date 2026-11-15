@@ -9,6 +9,7 @@ import ShiftDates from "../components/ShiftDates";
 import NoteActions from "../components/NoteActions";
 import { LateSubmissionDialog, NoteHelp } from "../components/WorkerNoteDialogs";
 import { easternShiftDefaults, shiftInterval, suggestedEndDate } from "../../lib/shift-dates.mjs";
+import { noteGoalGroups } from "../../lib/goal-category-order.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
@@ -628,12 +629,7 @@ const visibleGoals = (selectedParticipant?.participant_goals || [])
   })
   .sort((a, b) => a.sort_order - b.sort_order);
 
-const groupedVisibleGoals = visibleGoals.reduce((acc, goal) => {
-  const category = goal.category_name || "Goals";
-  if (!acc[category]) acc[category] = [];
-  acc[category].push(goal);
-  return acc;
-}, {});
+const groupedVisibleGoals = noteGoalGroups(visibleGoals, selectedParticipant?.goal_category_order);
 
 if (selectedParticipant) {
   return (
@@ -785,7 +781,7 @@ onChange={(e) => {
 
           {visibleGoals.length > 0 ? (
             <div style={{ display: "grid", gap: 16 }}>
-              {Object.entries(groupedVisibleGoals).map(([category, goals]) => (
+              {groupedVisibleGoals.map(({ category, goals }) => (
                 <div key={category}>
                   <div
                     className="dn-note-category"

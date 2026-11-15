@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { saveGoalCategoryOrder, updateRenamedCategoryPosition } from "../../../../lib/save-goal-category-order.js";
 
 export const runtime = "nodejs";
 
@@ -46,7 +47,7 @@ export async function GET(request) {
   const { admin, membership } = context;
 
   const { data: participants, error } = await admin.from("participants").select(`
-    id, name, cle_email, cle_auth_user_id, cle_invited_at, active, service_name, workspace_id, prompt_levels,
+    id, name, cle_email, cle_auth_user_id, cle_invited_at, active, service_name, workspace_id, prompt_levels, goal_category_order,
     participant_services (id, service_name, active),
     participant_goals (
       id, participant_id, participant_service_id, applicable_service_ids, goal_label, category_name,
@@ -69,7 +70,7 @@ export async function POST(request) {
   const participantId = String(body.participantId || "");
   if (!participantId) return json({ error: "Choose a participant." }, 400);
 
-  const { data: participant } = await admin.from("participants").select("id, name")
+  const { data: participant } = await admin.from("participants").select("id, name, goal_category_order")
     .eq("id", participantId).eq("workspace_id", membership.workspace_id).eq("active", true).maybeSingle();
   if (!participant) return json({ error: "Participant not found in your workspace." }, 404);
 
@@ -175,6 +176,11 @@ export async function POST(request) {
     return json({ message: existingGoal ? `Goal updated under ${categoryName}.` : `Goal added under ${categoryName}.`, goalId: saved.id });
   }
 
+  if (action === "reorder_categories") {
+    const result = await saveGoalCategoryOrder(admin, participantId, body.categoryOrder);
+    return json(result.body, result.status);
+  }
+
   if (action === "rename_category") {
     const oldCategory = String(body.oldCategory || "").trim();
     const newCategory = String(body.newCategory || "").trim();
@@ -193,7 +199,10 @@ export async function POST(request) {
     if ((renamed || []).length !== goalIds.length) {
       return json({ error: "Not every goal in this category could be updated." }, 400);
     }
-    return json({ message: `Category renamed from ${oldCategory} to ${newCategory}.` });
+    const orderSaved = await updateRenamedCategoryPosition(admin, participant, oldCategory, newCategory);
+    return json({ message: orderSaved
+      ? `Category renamed from ${oldCategory} to ${newCategory}.`
+      : "Category renamed, but its position could not be kept. Use the category arrows to reset it." });
   }
 
   if (action === "remove_category") {
@@ -206,6 +215,7 @@ export async function POST(request) {
       .eq("active", true).in("id", goalIds).select("id");
     if (error) return json({ error: error.message }, 400);
     if ((updated || []).length !== goalIds.length) return json({ error: "Not every goal in this category could be updated." }, 400);
+    await updateRenamedCategoryPosition(admin, participant, category, null);
     return json({ message: `${category} was removed. Its goals are now uncategorized.` });
   }
 

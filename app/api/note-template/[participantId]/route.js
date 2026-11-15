@@ -54,6 +54,7 @@ export async function GET(request, { params }) {
       cle_auth_user_id,
       workspace_id,
       prompt_levels,
+      goal_category_order,
       active,
       participant_outcomes (
         id,

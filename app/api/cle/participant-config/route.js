@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { saveGoalCategoryOrder, updateRenamedCategoryPosition } from "../../../../lib/save-goal-category-order.js";
 
 export const runtime = "nodejs";
 
@@ -27,7 +28,7 @@ async function getCleContext(request) {
 
   const { data: participant, error: participantError } = await admin
     .from("participants")
-    .select("id, name")
+    .select("id, name, goal_category_order")
     .eq("active", true)
     .eq("cle_auth_user_id", user.id)
     .limit(1)
@@ -133,6 +134,11 @@ export async function POST(request) {
     });
   }
 
+  if (action === "reorder_categories") {
+    const result = await saveGoalCategoryOrder(admin, participant.id, body.categoryOrder);
+    return json(result.body, result.status);
+  }
+
   if (action === "rename_category") {
     const oldCategory = String(body.oldCategory || "").trim();
     const newCategory = String(body.newCategory || "").trim();
@@ -148,7 +154,10 @@ export async function POST(request) {
     if ((renamed || []).length !== goalIds.length) {
       return json({ error: "Not every goal in this category could be updated." }, 400);
     }
-    return json({ message: `Category renamed from ${oldCategory} to ${newCategory}.` });
+    const orderSaved = await updateRenamedCategoryPosition(admin, participant, oldCategory, newCategory);
+    return json({ message: orderSaved
+      ? `Category renamed from ${oldCategory} to ${newCategory}.`
+      : "Category renamed, but its position could not be kept. Use the category arrows to reset it." });
   }
 
   if (action === "remove_category") {
@@ -161,6 +170,7 @@ export async function POST(request) {
       .eq("active", true).in("id", goalIds).select("id");
     if (error) return json({ error: error.message }, 400);
     if ((updated || []).length !== goalIds.length) return json({ error: "Not every goal in this category could be updated." }, 400);
+    await updateRenamedCategoryPosition(admin, participant, category, null);
     return json({ message: `${category} was removed. Its goals are now uncategorized.` });
   }
 

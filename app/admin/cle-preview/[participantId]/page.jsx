@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { supabase } from "../../../../lib/supabase";
 import { CleNoteCorrections } from "../../../components/NoteCorrections";
 import { RecentNoteSettings } from "../../../components/RecentNotes";
+import { managementGoalGroups } from "../../../../lib/goal-category-order.mjs";
 
 const DELIVERY_OPTIONS = [
   { value: "immediate", label: "Email each note when submitted" },
@@ -114,24 +115,7 @@ export default function AdminClePreviewPage() {
     .filter((service) => service.active && String(service.service_name || "").trim().toLowerCase() !== "respite")
     .sort((first, second) => String(first.service_name || "").localeCompare(String(second.service_name || "")));
 
-  const groupedGoals = useMemo(() => {
-    const groups = new Map();
-    for (const goal of (participant?.participant_goals || []).filter((item) => item.active)) {
-      const category = goal.category_name?.trim() || "Uncategorized";
-      const categoryKey = category.toLocaleLowerCase();
-      if (!groups.has(categoryKey)) groups.set(categoryKey, { category, goals: [] });
-      groups.get(categoryKey).goals.push(goal);
-    }
-    return [...groups.values()]
-      .sort((first, second) => first.category.localeCompare(second.category))
-      .map((group) => ({
-        category: group.category,
-        goals: group.goals.sort((first, second) =>
-          (Number(first.sort_order) || 0) - (Number(second.sort_order) || 0) ||
-          String(first.goal_label || "").localeCompare(String(second.goal_label || ""))
-        ),
-      }));
-  }, [participant]);
+  const groupedGoals = useMemo(() => managementGoalGroups(participant), [participant]);
   const selectedPromptLevels = previewPromptLevels(participant);
 
   const workerOptions = Array.from(

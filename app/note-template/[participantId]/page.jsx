@@ -6,6 +6,7 @@ import { supabase } from "../../../lib/supabase";
 import ShiftDates from "../../components/ShiftDates";
 import NoteActions from "../../components/NoteActions";
 import { easternShiftDefaults } from "../../../lib/shift-dates.mjs";
+import { noteGoalGroups } from "../../../lib/goal-category-order.mjs";
 
 const DEFAULT_PROMPT_LEVELS = [
   "Independent",
@@ -151,12 +152,7 @@ export default function NoteTemplatePreviewPage() {
     })
     .sort((a, b) => a.sort_order - b.sort_order);
 
-  const groupedVisibleGoals = visibleGoals.reduce((acc, goal) => {
-    const category = goal.category_name || "Goals";
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(goal);
-    return acc;
-  }, {});
+  const groupedVisibleGoals = noteGoalGroups(visibleGoals, participant?.goal_category_order);
 
   const cardStyle = {
     marginTop: 18,
@@ -331,7 +327,7 @@ export default function NoteTemplatePreviewPage() {
 
               {visibleGoals.length > 0 ? (
                 <div style={{ display: "grid", gap: 16 }}>
-                  {Object.entries(groupedVisibleGoals).map(([category, goals]) => (
+                  {groupedVisibleGoals.map(({ category, goals }) => (
                     <div key={category}>
                       <div
                         className="dn-note-category"
