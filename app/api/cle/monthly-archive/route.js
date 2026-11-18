@@ -1,4 +1,5 @@
 import { PDFDocument } from "pdf-lib";
+import { getParticipantInitials } from "../../../../lib/note-filenames.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
@@ -46,20 +47,6 @@ function buildSelectedGoals(note) {
     }));
 }
 
-function getParticipantInitials(name) {
-  const parts = String(name || "Participant")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (!parts.length) return "PR";
-
-  return parts
-    .slice(0, 3)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
 
 function getMonthName(monthNumber) {
   const date = new Date(Date.UTC(2026, Number(monthNumber) - 1, 1));

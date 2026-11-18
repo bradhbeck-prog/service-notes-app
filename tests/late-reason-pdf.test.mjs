@@ -12,9 +12,11 @@ const end = source.indexOf("export async function POST", start);
 source = source.slice(0, start) + "async function loadAuthorizedNote() { return globalThis.pdfReasonTestNote; }\n" + source.slice(end);
 const { code } = transformSync(source, { filename: "route.js", jsc: { parser: { syntax: "ecmascript" }, target: "es2022" }, module: { type: "commonjs" } });
 const module = { exports: {} };
-new Function("module", "exports", "require", code)(module, module.exports, name =>
-  name === "../../../lib/sendEmail" ? { sendServiceNoteEmail: async () => { throw new Error("Tests must not send email."); } } : require(name)
-);
+new Function("module", "exports", "require", code)(module, module.exports, name => {
+  if (name === "../../../lib/sendEmail") return { sendServiceNoteEmail: async () => { throw new Error("Tests must not send email."); } };
+  if (name === "../../../lib/note-filenames.mjs") return require("../lib/note-filenames.mjs");
+  return require(name);
+});
 const { POST } = module.exports;
 
 async function render(reason, extraNarrative = "") {

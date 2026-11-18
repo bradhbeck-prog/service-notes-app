@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { getParticipantInitials } from "../../../lib/note-filenames.mjs";
 import fontkit from "@pdf-lib/fontkit";
 import { sendServiceNoteEmail } from "../../../lib/sendEmail";
 import path from "path";
@@ -181,20 +182,6 @@ export async function POST(req) {
         .replace(/[^a-zA-Z0-9-]/g, "") || "Service";
     }
 
-    function getParticipantInitials(name) {
-      const parts = String(name || "Participant")
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
-
-      if (!parts.length) return "PR";
-
-      return parts
-        .slice(0, 3)
-        .map((part) => part[0])
-        .join("")
-        .toUpperCase();
-    }
 
     function formatFileDate(dateStr) {
       if (!dateStr) return "unknown-date";

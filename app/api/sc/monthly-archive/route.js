@@ -1,13 +1,11 @@
 import { PDFDocument } from "pdf-lib";
+import { getParticipantInitials as initials } from "../../../../lib/note-filenames.mjs";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
 function responseText(message, status = 400) {
   return new Response(message, { status, headers: { "Cache-Control": "no-store" } });
-}
-function initials(name) {
-  return String(name || "Participant").trim().split(/\s+/).filter(Boolean).slice(0, 3).map((part) => part[0]).join("").toUpperCase() || "PR";
 }
 
 export async function GET(request) {

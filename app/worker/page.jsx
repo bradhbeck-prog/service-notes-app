@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getParticipantInitials } from "../../lib/note-filenames.mjs";
 import SignatureCanvas from "react-signature-canvas";
 import { supabase } from "../../lib/supabase";
 import { WorkerCorrections } from "../components/NoteCorrections";
@@ -80,20 +81,6 @@ function getCurrentTime() {
 
 
 
-function getParticipantInitials(name) {
-  const parts = String(name || "Participant")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (!parts.length) return "PR";
-
-  return parts
-    .slice(0, 3)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-}
 
 function formatFileDate(dateStr) {
   if (!dateStr) return "unknown-date";
