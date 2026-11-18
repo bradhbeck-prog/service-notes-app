@@ -153,7 +153,7 @@ export async function GET(request, { params }) {
 
   const { data: noteRows, error: notesError } = await admin
     .from("service_notes")
-    .select("id, shift_date, date_completed, signed_at, time_in, time_out, service, location, status, created_at, workers(name)")
+    .select("id, shift_date, date_completed, signed_at, time_in, time_out, service, location, status, created_at, late_submission_reason, workers(name)")
     .eq("participant_id", participant.id)
     .eq("status", "submitted")
     .order("shift_date", { ascending: false })

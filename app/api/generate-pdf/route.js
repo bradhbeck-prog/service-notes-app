@@ -50,7 +50,7 @@ async function loadAuthorizedNote(request, noteId) {
 
   const { data: note, error: noteError } = await admin.from("service_notes").select(`
     id, participant_id, worker_id, shift_date, shift_end_date, date_completed, signed_at, time_in, time_out,
-    service, location, narrative, goals, goal_details, prompt_levels, status,
+    service, location, narrative, goals, goal_details, prompt_levels, status, late_submission_reason,
     worker_signature_mode, worker_typed_signature, worker_drawn_signature, worker_signature_font,
     workers(id, name, auth_user_id),
     participants(
@@ -130,6 +130,7 @@ export async function POST(req) {
       signatureFont: note.worker_signature_font || "Pacifico",
       dateCompleted: note.date_completed,
       signedAt: note.signed_at,
+      lateSubmissionReason: note.late_submission_reason,
       attestationText: "I certify that this service note accurately reflects the services I provided.",
     };
 
@@ -154,6 +155,7 @@ export async function POST(req) {
       signatureFont,
       dateCompleted,
       signedAt,
+      lateSubmissionReason,
       attestationText,
     } = body;
 
@@ -615,6 +617,36 @@ for (const paragraphLines of noteLinesByParagraph) {
     page.drawText("Attestation:", { x: 50, y, size: 10, font: boldFont });
     y -= 14;
     y = drawWrappedLines(page, attestationLines, 50, y, 12, font, 10);
+
+    if (typeof lateSubmissionReason === "string" && lateSubmissionReason.trim()) {
+      y -= 12;
+      ensureSpace(48);
+      page.drawText("Reason for late submission:", { x: LEFT, y, size: 11, font: boldFont });
+      y -= 18;
+      // Break unusually long words as well as lines, keeping the saved reason in the margins.
+      const safeWords = lateSubmissionReason.trim().split(/\s+/).map((word) => {
+        const pieces = [];
+        let piece = "";
+        for (const character of word) {
+          if (piece && font.widthOfTextAtSize(piece + character, 11) > CONTENT_WIDTH) {
+            pieces.push(piece);
+            piece = "";
+          }
+          piece += character;
+        }
+        pieces.push(piece);
+        return pieces.join(" ");
+      }).join(" ");
+      for (const line of wrapText(safeWords, font, 11, CONTENT_WIDTH)) {
+        if (y < BOTTOM + 16) {
+          newPage();
+          page.drawText("Reason for late submission (continued):", { x: LEFT, y, size: 11, font: boldFont });
+          y -= 18;
+        }
+        page.drawText(line, { x: LEFT, y, size: 11, font });
+        y -= 15;
+      }
+    }
 
     // Addenda never replace the original note, signature, or submission timestamp.
     for (const correction of authorized.corrections) {

@@ -596,6 +596,11 @@ export default function AdminClePreviewPage() {
                         <div style={{ color: "var(--dn-muted, #4b5563)", fontSize: 14 }}>
                           Completed: {formatDate(note.date_completed)} · Signed: {formatDateTime(note.signed_at)}
                         </div>
+                        {note.late_submission_reason && (
+                          <div style={{ fontSize: 14, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
+                            <strong>Reason for late submission:</strong> {note.late_submission_reason}
+                          </div>
+                        )}
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button
                             onClick={() => handleDownloadPdf(note, true)}
